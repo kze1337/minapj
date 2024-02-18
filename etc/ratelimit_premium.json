@@ -1,0 +1,8 @@
+{
+    "gpt-3.5-turbo": 50,
+    "gpt-4": 10,
+    "dalle-2": 5,
+    "gemini": 110,
+    "gemini-pro-vision": 10,
+    "daily": 5
+}
