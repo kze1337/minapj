@@ -13,8 +13,7 @@ class Ping(commands.Cog):
     async def ping(self, ctx):
         embed = disnake.Embed(
             title="Pong!",
-            description=f"Độ trễ API: {round(self.bot.latency * 100)}ms"
-                        f"\nĐộ trễ Websocket: {round(self.bot.ws.latency * 100)}ms",
+            description=f"Độ trễ API: {round(self.bot.latency * 100)}ms",
             color=disnake.Color.green()
         )
         await ctx.send(embed=embed)
