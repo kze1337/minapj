@@ -678,7 +678,7 @@ class Misc(commands.Cog):
 
         embed.description += f"> <:python:1119837192152424448> **Phiên bản của Python:** `{platform.python_version()}`\n" \
                              f"> <:disnake:1119830259756454019> **Phiên bản của Disnake:** `Pre-release {disnake.__version__}`\n" \
-                             f"> **Hệ điều hành đang sử dụng:** `{platform.system()} {platform.release()} {platform.machine()}`\n" \
+                             f"> <:home:1208751844373827607> **Hệ điều hành đang sử dụng:** `{platform.system()} {platform.release()} {platform.machine()}`\n" \
                              f"> 📶 **Độ trễ API:** `{latency_bot}ms`\n" \
                              f"{ram_msg}" \
                              f"> <a:loading:1204300257874288681> **Lần khởi động lại cuối cùng:** <t:{int(bot.uptime.timestamp())}:R>\n"
