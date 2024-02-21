@@ -6372,21 +6372,52 @@ class Music(commands.Cog):
                             description=msg,
                             color=self.bot.get_color(member))
                         try:
-                            self.bot.loop.create_task(self.text_channel.send(embed=embed, delete_after=7))
+                            self.bot.loop.create_task(player.text_channel.send(embed=embed, delete_after=7))
                         except:
                             traceback.print_exc()
                         await player.destroy()
 
                 else:
-                    while not member.voice:
-                        if not player._new_node_task:
-                            try:
-                                await player.connect(vc.id)
-                                break
-                            except Exception:
-                                traceback.print_exc()
+                    while True:
+
+                        try:
+                            player = self.bot.music.players[member.guild.id]
+                        except KeyError:
+                            return
+
+                        if player.guild.me.voice:
+                            if isinstance(before.channel, disnake.StageChannel) \
+                                    and member not in before.channel.speakers \
+                                    and before.channel.permissions_for(member).manage_permissions:
+                                try:
+                                    await member.guild.me.edit(suppress=False)
+                                except Exception:
+                                    traceback.print_exc()
+                            return
+
                         if player.is_closing:
                             return
+
+                        if not player._new_node_task:
+
+                            try:
+                                can_connect(before.channel, player.guild, bot=player.bot)
+                            except Exception as e:
+                                player.set_command_log(f"Trình phát đã bị tắt vì đã xảy ra lỗi: {e}")
+                                await player.destroy()
+                                return
+
+                            try:
+                                await player.connect(vc.id)
+                                player.set_command_log(text="Tui thấy bạn đang cố ngắt kết nối tui khỏi kênh. "
+                                                            "Hãy ngắt kết nối tui khỏi kênh bằng lệnh/nút: **stop**.",
+                                                       emoji="⚠️")
+                                player.update = True
+                                await asyncio.sleep(5)
+                                continue
+                            except Exception:
+                                traceback.print_exc()
+
                         await asyncio.sleep(30)
             return
 
@@ -6439,7 +6470,6 @@ class Music(commands.Cog):
                     traceback.print_exc()
 
             if member.guild.voice_client and after.channel:
-                # tempfix para channel do voice_client não ser setado ao mover bot do canal.
                 player.guild.voice_client.channel = after.channel
                 player.last_channel = after.channel
 
@@ -6455,7 +6485,7 @@ class Music(commands.Cog):
 
                     if before.channel.instance and member not in before.channel.members:
                         try:
-                            await before.channel.instance.edit(topic="tự động cập nhật bị vô hiệu hóa")
+                            await before.channel.instance.edit(topic="Tự động cập nhật bị vô hiệu :<")
                         except:
                             traceback.print_exc()
                         player.stage_title_event = False
@@ -6470,10 +6500,11 @@ class Music(commands.Cog):
 
         if member.bot and isinstance(after.channel, disnake.StageChannel) and after.channel.permissions_for(member).manage_permissions:
             await asyncio.sleep(1.5)
-            try:
-                await member.guild.me.edit(suppress=False)
-            except Exception:
-                traceback.print_exc()
+            if member not in after.channel.speakers:
+                try:
+                    await member.guild.me.edit(suppress=False)
+                except Exception:
+                    traceback.print_exc()
 
         player.members_timeout_task = player.bot.loop.create_task(player.members_timeout(check=bool(check)))
 

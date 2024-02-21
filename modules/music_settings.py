@@ -394,9 +394,10 @@ class MusicSettings(commands.Cog):
     setup_args.add_argument('-reset', '--reset', '-purge', '--purge', action="store_true",
                              help="Xóa tin nhắn kênh đã chọn (tối đa 100 tin nhắn, không hiệu quả trong diễn đàn).")
 
+    @commands.is_owner()
     @commands.has_guild_permissions(manage_guild=True)
     @commands.command(
-        name="setup", aliases=["songrequestchannel", "sgrc"], usage="{prefix}{cmd} [id|#canal]\nEx: {prefix}{cmd} #canal",
+        name="setup", aliases=["songrequestchannel", "sgrc"], usage="{prefix}{cmd} [id|#kênh]\nEx: {prefix}{cmd} #Anh-Ba-Phát-Nhạc",
         description="Tạo/Chọn một kênh chuyên dụng để yêu cầu bài hát và tạo một trình phát cố định.",
         cooldown=setup_cd, max_concurrency=setup_mc, extras={"flags": setup_args}
     )
@@ -411,6 +412,7 @@ class MusicSettings(commands.Cog):
         await self.setup.callback(self=self, interaction=ctx, target=channel,
                                   purge_messages=args.reset)
 
+    @commands.is_owner()
     @commands.slash_command(
         description=f"{desc_prefix}Tạo/chọn một kênh chuyên dụng để yêu cầu bài hát và tạo một trình phát cố định.",
         default_member_permissions=disnake.Permissions(manage_guild=True), cooldown=setup_cd, max_concurrency=setup_mc,
@@ -862,7 +864,7 @@ class MusicSettings(commands.Cog):
                                     f" mà không chọn kênh đích.")
 
             if not target.permissions_for(guild.me).read_messages:
-                raise GenericError(f"{bot.user.mention} permissão para ler mensagens no canal {target.mention}")
+                raise GenericError(f"{bot.user.mention} không có quyền gửi tin nhắn lên kênh {target.mention}")
 
             if purge_messages == "yes":
                 await target.purge(limit=100, check=lambda m: m.author != guild.me or not m.thread)
@@ -1094,7 +1096,7 @@ class MusicSettings(commands.Cog):
 
     @commands.has_guild_permissions(manage_guild=True)
     @commands.command(name="adddjrole",description="Thêm một vị trí vào danh sách DJ của máy chủ.",
-                      usage="{prefix}{cmd} [id|nome|@cargo]\nEx: {prefix}{cmd} @cargo", cooldown=djrole_cd, max_concurrency=djrole_mc)
+                      usage="{prefix}{cmd} [id|tên|@role]\nEx: {prefix}{cmd} @AnhBa", cooldown=djrole_cd, max_concurrency=djrole_mc)
     async def add_dj_role_legacy(self, ctx: CustomContext, *, role: disnake.Role):
         await self.add_dj_role.callback(self=self, interaction=ctx, role=role)
 
@@ -1105,7 +1107,7 @@ class MusicSettings(commands.Cog):
     async def add_dj_role(
             self,
             interaction: disnake.ApplicationCommandInteraction,
-            role: disnake.Role = commands.Param(name="role", description="ROLE")
+            role: disnake.Role = commands.Param(name="role", description="Vai trò cần thêm")
     ):
 
         inter, bot = await select_bot_pool(interaction)
@@ -1136,7 +1138,7 @@ class MusicSettings(commands.Cog):
 
     @commands.has_guild_permissions(manage_guild=True)
     @commands.command(name="removedjrole", description="Xóa một vị trí khỏi danh sách DJ của máy chủ.",
-                      usage="{prefix}{cmd} [id|nome|@cargo]\nEx: {prefix}{cmd} @cargo",
+                      usage="{prefix}{cmd} [id|tên|@role]\nEx: {prefix}{cmd} @Anhbadungcam",
                       cooldown=djrole_cd, max_concurrency=djrole_mc)
     async def remove_dj_role_legacy(self, ctx: CustomContext, *, role: disnake.Role):
         await self.remove_dj_role.callback(self=self, interaction=ctx, role=role)
@@ -1148,7 +1150,7 @@ class MusicSettings(commands.Cog):
     async def remove_dj_role(
             self,
             interaction: disnake.ApplicationCommandInteraction,
-            role: disnake.Role = commands.Param(name="cargo", description="Cargo")
+            role: disnake.Role = commands.Param(name="role", description="Vai trò cần xóa")
     ):
 
         inter, bot = await select_bot_pool(interaction)
@@ -1184,14 +1186,14 @@ class MusicSettings(commands.Cog):
     skin_mc =commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
 
     @commands.has_guild_permissions(manage_guild=True)
-    @commands.command(description="Thay đổi ngoại hình/da của người chơi.", name="changeskin", aliases=["skin", "skins"],
+    @commands.command(description="Thay đổi giao diện của người chơi.", name="changeskin", aliases=["skin", "skins"],
                       cooldown=skin_cd, max_concurrency=skin_mc)
     async def change_skin_legacy(self, ctx: CustomContext):
 
         await self.change_skin.callback(self=self, interaction=ctx)
 
     @commands.slash_command(
-        description=f"{desc_prefix}Thay đổi ngoại hình/da của người chơi.", cooldown=skin_cd, max_concurrency=skin_mc,
+        description=f"{desc_prefix}Thay đổi giao diện của người chơi.", cooldown=skin_cd, max_concurrency=skin_mc,
         default_member_permissions=disnake.Permissions(manage_guild=True), dm_permission=False
     )
     async def change_skin(self, interaction: disnake.AppCmdInter):
@@ -1241,13 +1243,13 @@ class MusicSettings(commands.Cog):
         embed = disnake.Embed(
             description="```ansi\n[31;1mChế độ Bình Thường:[0m``` " + ", ".join(f"[`[{s}]`]({bot.player_skins[s].preview})" for s in skin_list) + "\n\n" 
                         "```ansi\n[33;1mChế độ Tĩnh:[0m``` " + ", ".join(f"[`[{s}]`]({bot.player_static_skins[s].preview})" for s in static_skin_list) +
-                        "\n\n`Lưu ý: Trong chế độ toàn cầu, da sẽ được áp dụng trên toàn cầu trên tất cả các bot.`",
+                        "\n\n`Lưu ý: Trong chế độ toàn cầu, giao diện sẽ được áp dụng trên toàn cầu trên tất cả các bot.`",
             colour=bot.get_color(guild.me)
         ).set_image("https://cdn.discordapp.com/attachments/554468640942981147/1082887587770937455/rainbow_bar2.gif")
 
         try:
             if bot.user.id != self.bot.user.id:
-                embed.set_footer(text=f"Via: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
+                embed.set_footer(text=f"Thông qua bot: {bot.user.display_name}", icon_url=bot.user.display_avatar.url)
         except AttributeError:
             pass
 

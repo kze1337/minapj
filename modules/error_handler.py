@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import disnake
-from disnake.ext import commands
-from aiohttp import ClientSession
 import asyncio
 import traceback
 from typing import TYPE_CHECKING, Optional
@@ -15,7 +12,6 @@ from disnake.ext import commands
 from utils.music.converters import URL_REG
 from utils.music.errors import parse_error, PoolException
 from utils.others import send_message, CustomContext, string_to_file, paginator
-from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from utils.client import BotCore
@@ -33,7 +29,7 @@ class ErrorHandler(commands.Cog):
                 disnake.ui.Button(
                     label="Báo cáo lỗi này",
                     custom_id="report_error",
-                    emoji="⚠"
+                    emoji="⚠️"
                 )
             )
 
@@ -51,25 +47,6 @@ class ErrorHandler(commands.Cog):
 
         await self.process_interaction_error(inter=inter, error=error)
 
-    """@commands.Cog.listener('on_user_command_completion')
-    @commands.Cog.listener('on_message_command_completion')
-    @commands.Cog.listener('on_slash_command_completion')
-    async def interaction_command_completion(self, inter: disnake.AppCmdInter):
-
-        try:
-            await inter.application_command._max_concurrency.release(inter)
-        except:
-            pass
-
-
-    @commands.Cog.listener("on_command_completion")
-    async def legacy_command_completion(self, ctx: CustomContext):
-
-        try:
-            await ctx.command._max_concurrency.release(ctx.message)
-        except:
-            pass"""
-
     @commands.Cog.listener('on_user_command_error')
     @commands.Cog.listener('on_message_command_error')
     @commands.Cog.listener('on_slash_command_error')
@@ -78,12 +55,6 @@ class ErrorHandler(commands.Cog):
         await self.process_interaction_error(inter=inter, error=error)
 
     async def process_interaction_error(self, inter: disnake.AppCmdInter, error: Exception):
-
-        """if not isinstance(error, commands.MaxConcurrencyReached):
-            try:
-                await inter.application_command._max_concurrency.release(inter)
-            except:
-                pass"""
 
         if isinstance(error, PoolException):
             return
@@ -96,7 +67,6 @@ class ErrorHandler(commands.Cog):
         kwargs = {"text": ""}
         send_webhook = False
         color = disnake.Color.red()
-        kwargs["embeds"] = disnake.Embed(color=disnake.Colour.red())
 
         try:
             if inter.message.author.bot or mention_author:
@@ -108,8 +78,11 @@ class ErrorHandler(commands.Cog):
 
             components = self.components
 
-            kwargs["embeds"].title = "Đã xảy ra lỗi trong lệnh:"
-            kwargs["embeds"].description = f"TraceBack đã được ẩn\n"
+            kwargs["embed"] = disnake.Embed(
+                color=color,
+                title = "Đã có một sự cố xảy ra, nhưng đó không phải lỗi của bạn:",
+                description=f"```py\n{repr(error)[:2030].replace(self.bot.http.token, 'mytoken')}```"
+            )
 
             if self.bot.config["AUTO_ERROR_REPORT_WEBHOOK"]:
                 send_webhook = True
@@ -153,17 +126,11 @@ class ErrorHandler(commands.Cog):
     @commands.Cog.listener("on_command_error")
     async def on_legacy_command_error(self, ctx: CustomContext, error: Exception):
 
-        """if not isinstance(error, commands.MaxConcurrencyReached):
-            try:
-                await ctx.command._max_concurrency.release(ctx.message)
-            except:
-                pass"""
-
         if isinstance(error, (commands.CommandNotFound, PoolException)):
             return
 
         if isinstance(error, commands.NotOwner):
-            print(f"{ctx.author} [{ctx.author.id}] không sở hữu bot để sử dụng lệnh: {ctx.command.name}")
+            print(f"{ctx.author} [{ctx.author.id}] không sở hữu bot để sử dụng: {ctx.command.name}")
             return
 
         if isinstance(error, commands.MissingPermissions) and (await ctx.bot.is_owner(ctx.author)):
@@ -187,16 +154,16 @@ class ErrorHandler(commands.Cog):
             if ctx.channel.permissions_for(ctx.guild.me).embed_links:
                 kwargs["embed"] = disnake.Embed(
                     color=disnake.Colour.red(),
-                    title="Đã xảy ra lỗi trong lệnh:",
-                    description=f"TraceBack đã được ẩn\n"
+                    title="Đã có một sự cố đã xảy ra:",
+                    description=f"```py\n{repr(error)[:2030].replace(self.bot.http.token, 'mytoken')}```"
                 ).set_thumbnail(url="https://cdn.discordapp.com/attachments/1172052818501308427/1176426375704498257/1049220311318540338.png?ex=656ed370&is=655c5e70&hm=11d80b14a3ca28d04f7ac48d3a39b0c6d5947d20c9ae78cee9a4e511ce65f301&")
                 if self.bot.config["AUTO_ERROR_REPORT_WEBHOOK"]:
                     send_webhook = True
-                    kwargs["embed"].description += " `Nhà phát triển của tôi sẽ được thông báo về vấn đề.`"
+                    kwargs["embed"].description += " `Nhà phát triển của tôi sẽ được thông báo về vấn đề này.`"
 
             else:
-                kwargs["content"] += "\n**Đã xảy ra lỗi trong lệnh:**\n" \
-                                     f"Traceback đã được ẩn"
+                kwargs["content"] += "\n**Đã có một sự cố đã xảy ra:**\n" \
+                                     f"```py\n{repr(error)[:2030].replace(self.bot.http.token, 'mytoken')}```"
 
         else:
 
@@ -275,7 +242,7 @@ class ErrorHandler(commands.Cog):
                 ),
                 disnake.ui.TextInput(
                     style=disnake.TextInputStyle.short,
-                    label="Liên kết hình ảnh/in lỗi (Tùy chọn)",
+                    label="Link hình ảnh về lỗi này (Không yêu cầu)",
                     custom_id="image_url",
                     max_length=300,
                     required=False
@@ -292,7 +259,7 @@ class ErrorHandler(commands.Cog):
         if not inter.message.embeds:
             await inter.response.edit_message(
                 embed=disnake.Embed(
-                    title="Tin nhắn nhúng đã bị xóa!",
+                    title="Tin nhắn nhúng đã được xóa!",
                     description=inter.text_values["error_details"]
                 ), view=None
             )
@@ -303,7 +270,7 @@ class ErrorHandler(commands.Cog):
         if image_url and not URL_REG.match(image_url):
             await inter.send(
                 embed=disnake.Embed(
-                    title="Liên kết hình ảnh không hợp lệ!",
+                    title="Link hình ảnh không hợp lệ!",
                     description=inter.text_values["error_details"]
                 ), ephemeral=True
             )
@@ -312,14 +279,14 @@ class ErrorHandler(commands.Cog):
         embed = disnake.Embed(
             color=self.bot.get_color(inter.guild.me),
             description=inter.text_values["error_details"],
-            title="Báo cáo lỗi"
+            title="Báo cáo lỗi này"
         )
 
         embed.add_field(name="Log:", value=inter.message.embeds[0].description)
 
         await inter.response.edit_message(
             embed=disnake.Embed(
-                description="**Lỗi báo cáo thành công!**",
+                description="**Lỗi đã được báo cáo thành công!**",
                 color=self.bot.get_color(inter.guild.me)
             ), view=None
         )
@@ -329,7 +296,7 @@ class ErrorHandler(commands.Cog):
         except AttributeError:
             user_avatar = inter.author.avatar.url
 
-        embed.set_author(name=f"Lỗi báo cáo: {inter.author} - {inter.author.id}", icon_url=user_avatar)
+        embed.set_author(name=f"Lỗi được báo cáo: {inter.author} - {inter.author.id}", icon_url=user_avatar)
 
         guild_txt = f"Máy chủ: {inter.guild.name} [{inter.guild.id}]"
 
@@ -389,7 +356,7 @@ class ErrorHandler(commands.Cog):
         except AttributeError:
             if self.bot.intents.message_content and not ctx.author.bot:
                 embed.description = f"**Lệnh:**```\n" \
-                                    f"{ctx.message.content.replace(str(ctx.bot.user.mention), f'@{ctx.guild.me.display_name}')}" \
+                                    f"{ctx.message.content}" \
                                     f"```"
 
         return embed

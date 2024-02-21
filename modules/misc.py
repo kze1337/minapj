@@ -414,10 +414,10 @@ class Misc(commands.Cog):
             )
 
         if prefix:
-            prefix_msg = f"Meu prefixo no servidor é: **{prefix}**"
+            prefix_msg = f"Prefix của tui là: **{prefix}**"
         else:
             prefix = self.bot.default_prefix
-            prefix_msg = f"Meu prefixo padrão é **{prefix}**"
+            prefix_msg = f"Prefix của tui là **{prefix}**"
 
         embeds.append(
             disnake.Embed(

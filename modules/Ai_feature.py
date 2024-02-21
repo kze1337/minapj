@@ -185,9 +185,8 @@ class ChatGPT(commands.Cog):
                     if model == "gpt-3.5-turbo":
                         response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
                     if model == "gemini":
-                        # if premium:
                         # response = await gemini_ai(content)
-                        await ctx.edit_original_response("Hiện tại Model Gemini đang bị vô hiệu hóa, vui lòng thử lại sau :<", embed=None)
+                        await ctx.edit_original_response("Hiện tại Model Gemini đang bị vô hiệu hóa do vùng vps đang host không hỗ trợ, vui lòng thử lại sau :<", embed=None)
                         return
                     if response["status"] == "error":
                         await ctx.edit_original_response(embed=Embed.gen_error_embed(response["message"])) # Nahhh
@@ -200,29 +199,9 @@ class ChatGPT(commands.Cog):
                         used, left = use["used"], use["left"]
 
                 except Exception:
-                    # if self.error == AuthenticationError:
-                    #     await ctx.edit_original_response(embed=Embed.gen_error_embed("OpenAI API Key không hợp lệ,  vui lòng **Liên hệ gấp với ADMIN BOT**"))
-                    #     return
-                    # elif self.error == APIError:
-                    #     await ctx.edit_original_message(embed=Embed.gen_error_embed("OpenAI API đang gặp sự cố, vui lòng **Liên hệ gấp với ADMIN BOT**"))
-                    #     return
-                    # elif self.error == RateLimitError:
-                    #     await ctx.edit_original_message(embed=Embed.gen_error_embed("Lượt chat của bạn đã đạt max token, vui lòng hỏi một câu khác"))
-                    #     return
-                    # elif self.error == Timeout:
-                    #     await ctx.edit_original_message(embed=Embed.gen_error_embed("OpenAI API đang gặp sự cố, vui lòng thử lại sau"))
-                    #     return
-                    # elif self.error == APIConnectionError:
-                    #     await ctx.edit_original_message(embed=Embed.gen_error_embed("OpenAI API đang gặp sự cố, vui lòng thử lại sau"))
-                    #     return
-                    # elif self.error == ServiceUnavailableError:
-                    #     await ctx.edit_original_message(embed=Embed.gen_error_embed("Hiện tại dịch vụ đang bị gián đoạn, vui lòng liên hệ Bot Admin để được hỗ trợ"))
-                    #     return
-                    # elif self.error == TryAgain:
-                    #     await ctx.edit_original_message(embed=Embed.gen_error_embed("Vui lòng thử lại"))
-                    #     return
                     await ctx.edit_original_response("Đã xảy ra lỗi", embed=None)
                     traceback.print_exc()
+                    return
                     
                 if len(response["message"]) <= 1850:
                     message = f"> ### Trả lời cho {ctx.author.mention} câu hỏi {content}:\n\n" + response["message"]
@@ -265,7 +244,7 @@ class ChatGPT(commands.Cog):
                                     f"{'👑' if premium else '<:verify:1134033164151566460>'} Bạn đã sử dụng {used} lần, còn lại {left} lần",
                         color=disnake.Color.green()
                     )
-                    with open("response.txt", "w", encoding="utf-8") as f:  # save response to file
+                    with open("response.txt", "w", encoding="utf-8") as f:
                         f.write(response["message"])
                     if self.debugging:
                         await ctx.edit_original_response(content=f"> ### Trả lời cho {ctx.author.mention} câu hỏi {content}:\n\n"
