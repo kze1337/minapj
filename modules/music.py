@@ -36,7 +36,7 @@ from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist, 
 from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
     pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
-    select_bot_pool, get_inter_guild_data
+    select_bot_pool, get_inter_guild_data, ProgressBar
 
 
 class Music(commands.Cog):
@@ -4205,6 +4205,106 @@ class Music(commands.Cog):
 
         await view.wait()
 
+    playerinfo_cd = commands.CooldownMapping.from_cooldown(1, 7, commands.BucketType.member)
+
+    @commands.command(name="playerinfo", aliases=["pinfo"], cooldown=playerinfo_cd,
+                      description="Hiển thị thông tin người chơi bạn đang hoạt động.")
+    async def playerinfo_legacy(self, ctx: CustomContext):
+        await self.player_info.callback(self=self, inter=ctx)
+
+    @commands.slash_command(description=f"{desc_prefix}Hiển thị thông tin người chơi đang hoạt động.",
+                            cooldown=playerinfo_cd, dm_permission=False)
+    async def player_info(self, inter: disnake.AppCmdInter):
+        await inter.response.defer(ephemeral=True)
+
+        for bot in self.bot.pool.bots:
+
+            for player_id in bot.music.players:
+
+                player = bot.music.players[player_id]
+
+                try:
+                    vc = player.guild.me.voice.channel
+                except AttributeError:
+                    continue
+
+                public_vc = "DISCOVERABLE" in player.guild.features and vc.permissions_for(player.guild.default_role).connect
+
+                if inter.author.id in vc.voice_states:
+
+                    if not player.current:
+                        raise GenericError(f"**Hiện tại tôi không chơi thứ gì đó trên kênh {vc.mention}**")
+
+                    if player.guild_id != inter.guild_id and not (await bot.is_owner(inter.author)):
+
+                        current_guild = None
+
+                        for b in self.bot.pool.bots:
+                            if current_guild:=b.get_guild(inter.guild_id):
+                                break
+
+                        if not current_guild:
+                            raise GenericError("**Bạn phải có ít nhất 1 bot tương thích được thêm vào máy chủ hiện tại.**")
+
+                        member = current_guild.get_member(inter.author.id)
+
+                        if not member.guild_permissions.manage_guild:
+                            raise GenericError("**Bạn không có quyền quản lý máy chủ trên máy chủ hiện tại**")
+
+                        member = player.guild.get_member(inter.author.id)
+
+                        if not public_vc and not member.guild_permissions.manage_guild:
+                            raise GenericError(f"**Bạn không có quyền quản lý máy chủ trong [kênh]({vc.jump_url}) trong đó bạn hiện đang được kết nối.**")
+
+                    vc_name = vc.jump_url if public_vc else f"[`{fix_characters(vc.name)}`]({vc.jump_url})"
+
+                    txt = f"### Thông tin người chơi mà người dùng {inter.author.mention} đang hoạt động:\n\n" \
+                        f"> <:play:1140220726327136427> **⠂Bài hát hiện tại:** [`{fix_characters(player.current.title, 30)}`]({player.current.uri or player.current.search_uri})\n"
+
+                    if player.current.playlist:
+                        txt += f"> <:playlist:1140220773051678811> **⠂Danh sách phát:** [`{fix_characters(player.current.playlist_name, 28)}`]({player.current.playlist_url})\n"
+
+                    if player.queue:
+                        txt += f"> <:musicalbum:1183394320292790332> **⠂Các bài hát trong hàng đợi** {len(player.queue)}\n"
+
+                    txt += f"> `🔊` **⠂{'Kênh thoại' if isinstance(vc, disnake.VoiceChannel) else 'Sân khấu'}:** {vc_name}\n"\
+                           f"> `🎧` **⠂Người nghe hiện tại:** `{len([m for m in vc.members if not m.bot and (not m.voice.self_deaf or not m.voice.deaf)])}`\n"\
+                           f"> <:timeout:1155781760571949118> **⠂Hoạt động kể từ:** <t:{player.uptime}:f> - <t:{player.uptime}:R>\n"
+
+                    embed = disnake.Embed(description=txt, color=self.bot.get_color(player.guild.me),)
+
+                    if player.current.is_stream:
+                        txt = "🔴 [34;1m⠂Phát sóng trực tiếp[0m"
+                    else:
+                        progress = ProgressBar(
+                            player.position,
+                            player.current.duration,
+                            bar_count=20
+                        )
+                        txt = f"[34;1m[{time_format(player.position)}] {('=' * progress.start)}[0m🔴️[36;1m{'-' * progress.end} " \
+                               f"[{time_format(player.current.duration)}][0m"
+
+                    embed.description += f"```ansi\n{txt}```\n"
+
+                    embed.set_author(name=bot.user.display_name,
+                                     icon_url=bot.user.display_avatar.with_static_format("png").url)
+
+                    embed.set_thumbnail(url=player.current.thumb)
+
+                    try:
+                        footer_kw = {"icon_url": player.guild.icon.with_static_format("png").url}
+                    except AttributeError:
+                        footer_kw = {}
+
+                    embed.set_footer(text=f"Máy chủ: {player.guild.name} [ID: {player.guild.id}]", **footer_kw)
+                    try:
+                        await inter.edit_original_response(embed=embed)
+                    except AttributeError:
+                        await inter.send(embed=embed)
+                    return
+
+        raise GenericError("**Bạn không được kết nối với kênh thoại với trình phát đang hoạt động...**")
+
     @commands.Cog.listener("on_message_delete")
     async def player_message_delete(self, message: disnake.Message):
 
@@ -5719,6 +5819,8 @@ class Music(commands.Cog):
             else:
                 await self.thread_song_request(message_inter.thread, reopen=True, bot=bot)
 
+        print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player create at guild: {inter.guild.name}")
+
         return player
 
 
@@ -6018,7 +6120,7 @@ class Music(commands.Cog):
         retries = 0
         backoff = 7
 
-        print(Fore.RED + f"{self.bot.user} - [{node.identifier} / v{node.version}] Lost connection - reconnecting in {int(backoff)} seconds." + Style.RESET_ALL)
+        print(Fore.RED + f"❌ {self.bot.user} - [{node.identifier} / v{node.version}] Lost connection - reconnecting in {int(backoff)} seconds." + Style.RESET_ALL)
 
         for player in list(node.players.values()):
 
@@ -6037,7 +6139,7 @@ class Music(commands.Cog):
                 return
 
             if self.bot.config["LAVALINK_RECONNECT_RETRIES"] and retries == self.bot.config["LAVALINK_RECONNECT_RETRIES"]:
-                print(f"{self.bot.user} - [{node.identifier}] All attempts to reconnect failed...")
+                print(f"❌ {self.bot.user} - [{node.identifier}] All attempts to reconnect failed...")
                 return
 
             await self.bot.wait_until_ready()
@@ -6060,14 +6162,14 @@ class Music(commands.Cog):
 
             backoff *= 1.5
             print(
-                f'{self.bot.user} - Failed to reconnect to server [{node.identifier}] retry {int(backoff)}'
-                f' segundos. Erro: {error}'[:300])
+                f'❌ {self.bot.user} - Failed to reconnect to server [{node.identifier}] retry {int(backoff)}'
+                f' sec. Erro: {error}'[:300])
             await asyncio.sleep(backoff)
             retries += 1
 
     @commands.Cog.listener("on_wavelink_node_ready")
     async def node_ready(self, node: wavelink.Node):
-        print(Fore.GREEN + f'{self.bot.user} - Music server: [{node.identifier} / v{node.version}] is ready to use!', Style.RESET_ALL)
+        print("✅" + Fore.GREEN + f'{self.bot.user} - Music server: [{node.identifier} / v{node.version}] is ready to use!', Style.RESET_ALL)
         retries = 25
         while retries > 0:
 
@@ -6116,12 +6218,12 @@ class Music(commands.Cog):
             retries = 1
             exception = None
 
-            print(Fore.GREEN + f"{self.bot.user} - The music server starts: {data['identifier']}", Style.RESET_ALL)
+            print(Fore.GREEN + f"🔰 {self.bot.user} - The music server starts: {data['identifier']}", Style.RESET_ALL)
 
             while not self.bot.is_closed():
                 if retries >= max_retries:
                     print(Fore.RED +
-                        f"{self.bot.user} - All attempts to connect to server [{data['identifier']}] failed.", Style.RESET_ALL)
+                        f"❌ {self.bot.user} - All attempts to connect to server [{data['identifier']}] failed.", Style.RESET_ALL)
                     return
                 else:
                     await asyncio.sleep(backoff)
@@ -6136,7 +6238,7 @@ class Music(commands.Cog):
                     except Exception as e:
                         exception = e
                         if data["identifier"] != "LOCAL":
-                            print(Fore.YELLOW + f'{self.bot.user} - Failed to connect to server [{data["identifier"]}], '
+                            print(Fore.YELLOW + f'❌ {self.bot.user} - Failed to connect to server [{data["identifier"]}], '
                                    f'retry [{retries}/{max_retries}] in {backoff} seconds.', Style.RESET_ALL)
                         backoff += 2
                         retries += 1
@@ -6151,7 +6253,7 @@ class Music(commands.Cog):
                     elif r.status != 404:
                         raise Exception(f"{self.bot.user} - [{r.status}]: {await r.text()}"[:300])
             except Exception as e:
-                print(Fore.RED + f"Failed to connect to the server {data['identifier']}", Style.RESET_ALL)
+                print(Fore.RED + f"❌ Failed to connect to the server {data['identifier']}", Style.RESET_ALL)
                 return
 
         data["identifier"] = data["identifier"].replace(" ", "_")

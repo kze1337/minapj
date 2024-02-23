@@ -2815,6 +2815,8 @@ class LavalinkPlayer(wavelink.Player):
 
         await super().destroy(force=force, guild=self.guild)
 
+        print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player destroy at {inter.guild.name}")
+
         self.bot.dispatch("player_destroy", player=self)
 
     #######################

@@ -137,7 +137,7 @@ class BotPool:
                         return
 
                     self.killing_state = "ratelimit"
-                    print("Ứng dụng với Ratelimit từ Discord!")
+                    print("Ứng dụng đã bị Ratelimit từ Discord!")
                     await asyncio.sleep(10)
                     raise e
 
@@ -145,7 +145,7 @@ class BotPool:
                     return
 
                 print(
-                    "Application with discord ratelimit!\n"
+                    "Application got discord ratelimit!\n"
                      "Finishing/Restarting the process in 5 seconds..."
                 )
 
@@ -311,15 +311,15 @@ class BotPool:
 
         if mongo_key:
             self.mongo_database = MongoDatabase(mongo_key, timeout=self.config["MONGO_TIMEOUT"])
-            print("Database in use:" + Fore.GREEN + " MongoDB", Style.RESET_ALL)
+            print("🔰 Database in use:" + Fore.GREEN + " MongoDB", Style.RESET_ALL)
         else:
-            print("Database in use:" + Fore.CYAN + " TinyMongo", Style.RESET_ALL)
+            print("🔰 Database in use:" + Fore.CYAN + " TinyMongo", Style.RESET_ALL)
 
         self.local_database = LocalDatabase()
 
         try:
             self.commit = check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-            print(Fore.GREEN + f"Current version: {self.commit}\n{'-' * 30}"    )
+            print(Fore.GREEN + f"🔰 Current version: {self.commit}\n{'-' * 30}"    )
         except:
             self.commit = None
 
@@ -574,10 +574,14 @@ class BotPool:
 
                     bot.bot_ready = True
 
-                print(Fore.GREEN + f'{bot.user} - [{bot.user.id}] Đã sẵn sàng, đang đợi tải các máy chủ Lavalink.', Style.RESET_ALL)
                 print(Fore.CYAN + f"Xin chào {bot.owner}, Chúc bạn một ngày tốt lành!", Style.RESET_ALL)
                 print(Fore.RED + f"Prefix của tôi là: {bot.default_prefix}", Style.RESET_ALL)
                 print(Fore.YELLOW + "Disnake version: " + Fore.GREEN + disnake.__version__, Style.RESET_ALL)
+                print("Sử dụng cấu hình:\n"
+                              f"Lavalink local: {start_local}\n"
+                              f"YTDL: {self.config['USE_YTDL']}\n"
+                              f"Run RPC Server: {self.config['RUN_RPC_SERVER']}\n"
+                              f"Use JABBA: {self.config['USE_JABBA']}")
 
             self.bots.append(bot)
 
@@ -778,7 +782,7 @@ class BotCore(commands.AutoShardedBot):
     
     async def setup_database(self):
         db: aiosqlite.Connection = await aiosqlite.connect(database="databases/users.sqlite")
-        print(f"{Fore.GREEN}[Sqlite3] [MONGODB USER API] - [OK] Liên kết cơ sở dữ liệu người dùng thành công!{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}[Sqlite3] [MONGODB USER API] - [OK] Linked user database successfully!{Style.RESET_ALL}")
         await self.db_handler._initalize(db)
         return db
     
@@ -1172,22 +1176,22 @@ class BotCore(commands.AutoShardedBot):
                 try:
                     self.reload_extension(module_filename)
                     if self.pool.controller_bot == self and not self.bot_ready:
-                        print(Fore.GREEN + f"{'=' * 48}\n[OK] {bot_name} - Reloaded {filename}.py.")
+                        print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Reloaded {filename}.py.")
                     load_status["reloaded"].append(f"{filename}.py")
                 except (commands.ExtensionAlreadyLoaded, commands.ExtensionNotLoaded):
                     try:
                         self.load_extension(module_filename)
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(Fore.GREEN + f"{'=' * 48}\n[OK] {bot_name} - Loaded {filename}.py.")
+                            print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Loaded {filename}.py.")
                         load_status["loaded"].append(f"{filename}.py")
                     except Exception as e:
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(Fore.RED + f"{'=' * 48}\n[ERRO] {bot_name} - Failed to load/reload module: {filename}")
+                            print(Fore.RED + f"{'=' * 48}\n[❌] {bot_name} - Failed to load/reload module: {filename}")
                             raise e
                         return load_status
                 except Exception as e:
                     if self.pool.controller_bot == self and not self.bot_ready:
-                        print(Fore.RED + f"{'=' * 48}\n[ERRO] {bot_name} - Failed to load/reload module: {filename}")
+                        print(Fore.RED + f"{'=' * 48}\n[❌] {bot_name} - Failed to load/reload module: {filename}")
                         raise e
                     return load_status
 
@@ -1199,7 +1203,7 @@ class BotCore(commands.AutoShardedBot):
 
         for c in self.slash_commands:
             if (desc:=len(c.description)) > 100:
-                raise Exception(f"The command description {c.name} exceeded the allowed character count."
-                                 f"no discord (100), current amount: {desc}")
+                raise Exception(f"❌ The command description {c.name} exceeded the allowed character count "
+                                 f"(100), current amount: {desc}")
             
         return load_status
