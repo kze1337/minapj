@@ -5819,7 +5819,11 @@ class Music(commands.Cog):
             else:
                 await self.thread_song_request(message_inter.thread, reopen=True, bot=bot)
 
-        print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player create at guild: {inter.guild.name}")
+        try:
+
+            print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player create at guild: {inter.guild.name}")
+        except AttributeError:
+            print(f"Player create at guild: {inter.guild.name}")
 
         return player
 

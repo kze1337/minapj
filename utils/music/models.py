@@ -2814,8 +2814,10 @@ class LavalinkPlayer(wavelink.Player):
                     traceback.print_exc()
 
         await super().destroy(force=force, guild=self.guild)
-
-        print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player destroy at {inter.guild.name}")
+        try: 
+            print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player destroy at {inter.guild.name}")
+        except AttributeError:
+            print(f"Player destroy at {inter.guild.name}")
 
         self.bot.dispatch("player_destroy", player=self)
 
