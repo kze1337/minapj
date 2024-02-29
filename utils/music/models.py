@@ -5,6 +5,7 @@ import asyncio
 import datetime
 import pprint
 import random
+import aiohttp
 import traceback
 import uuid
 from collections import deque
@@ -600,6 +601,27 @@ class LavalinkPlayer(wavelink.Player):
 
             await cog.error_report_queue.put({"embed": embed})
 
+    
+
+    async def send_track_error(self, embed: disnake.Embed, track: Union[LavalinkTrack, PartialTrack]):
+
+        embed.description += f"\n**Nguồn:** `{track.info['sourceName']}`" \
+                                 f"\n**Máy chủ:** `{disnake.utils.escape_markdown(self.guild.name)} [{self.guild.id}]`"
+
+        try:
+            embed.description += f"\n**Kênh:** `{disnake.utils.escape_markdown(self.guild.me.voice.channel.name)} [{self.guild.me.voice.channel.id}]`\n"
+        except:
+            pass
+
+        embed.description += f"**Dữ liệu:** <t:{int(disnake.utils.utcnow().timestamp())}:F>"
+
+        if self.guild.icon:
+            embed.set_thumbnail(url=self.guild.icon.with_format("png").url)
+
+        webhook = self.bot.config["TRACK_ERROR_LOG"]
+        async with aiohttp.ClientSession() as sc:
+            wb = disnake.Webhook.from_url(webhook, session=sc)
+            await wb.send(embed=embed, username=self.bot.user.name, avatar_url=self.bot.user.display_avatar.url)
 
     async def hook(self, event) -> None:
 
@@ -702,6 +724,8 @@ class LavalinkPlayer(wavelink.Player):
                     err_msg = "Đã xảy ra lỗi khi giải mã bài hát."
                 elif event.message.startswith("Video returned by YouTube isn't what was requested"):
                     err_msg = "Video trả về bởi YouTube không phải là những gì được yêu cầu."
+                elif event.message.staetswith("Something went wrong when looking up the track"):
+                    err_msg = "Đã có lỗi xảy ra khi tìm kiếm bài hát"
             except UnboundLocalError:
                 err_msg = "Lỗi rồi =)))"
                 
@@ -720,8 +744,13 @@ class LavalinkPlayer(wavelink.Player):
             async def send_report():
 
                 print(("-" * 50) + f"\nLỗi khi chơi bài hát: {track.uri or track.search_uri}\n"
-                                   f"Máy chủ: {self.node.identifier}\n"
-                                   f"{error_format}\n" + ("-" * 50))
+                                   f"Máy chủ: {self.node.identifier}\n" + ("-" * 50))
+
+                logger = logging.getLogger(__name__)
+                logger.setLevel(logging.ERROR)
+                handler = logging.FileHandler(".\.logs\lavalink_error.log")
+                logger.addHandler(handler)
+                logger.critical(f"{self.node.identifier}\n {error_format}")
 
                 await self.report_error(embed, track)
 
@@ -745,7 +774,8 @@ class LavalinkPlayer(wavelink.Player):
             if (event.error == "This IP address has been blocked by YouTube (429)" or
                 event.message == "Video returned by YouTube isn't what was requested" or
                 (error_403 := event.cause.startswith(("java.lang.RuntimeException: Not success status code: 403",
-                                                      "java.io.IOException: Invalid status code for video page response: 400")))
+                                                      "java.io.IOException: Invalid status code for video page response: 400",
+                                                      "java.io.IOException: Invalid status code for search response: 400")))
             ):
 
                 if error_403 and self.node.retry_403:
@@ -774,7 +804,7 @@ class LavalinkPlayer(wavelink.Player):
 
                         self.locked = False
                         self.set_command_log(
-                            text=f'Lỗi 403 của YouTube xảy ra trong quá trình phát lại âm nhạc hiện tại.Nỗ lực {self.retries_403["counter"]}/5...')
+                            text=f'Lỗi 403 của YouTube xảy ra trong quá trình phát lại âm nhạc hiện tại. Thử lại: {self.retries_403["counter"]}/5...')
                         if not self.auto_pause:
                             self.update = True
                         else:
@@ -2474,7 +2504,7 @@ class LavalinkPlayer(wavelink.Player):
 
             if not tracks:
                 if exceptions:
-                    print("Không giải quyết được một phần:\n" + "\n".join(repr(e) for e in exceptions))
+                    print("Không xử lý được bài hát:\n" + "\n".join(repr(e) for e in exceptions))
                 return
 
             selected_track = None
@@ -2503,7 +2533,7 @@ class LavalinkPlayer(wavelink.Player):
                 description=f"**Không lấy được thông tin PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
                              f"**Máy chủ âm nhạc:** `{self.node.identifier}`",
                 color=disnake.Colour.red())
-            await self.report_error(embed, track)
+            await self.send_track_error(embed, track)
             return
 
         return
