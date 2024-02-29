@@ -17,6 +17,16 @@ reasonList = [
     "Bạn làm bartender đi lắc nước được {money} Mora!",
     "Bạn tạo kênh youtube được donate {money} Mora!",
     "Bạn đi ăn tết thì được {nguoithan} lì xì cho {money} Mora!",
+    "Bạn vừa nhận lương tháng và được {money} Mora!",
+    "Bạn đi làm thêm và kiếm được {money} Mora!",
+    "Bạn vừa bán được một món đồ và thu được {money} Mora!",
+    "Bạn vừa nhận tiền thưởng và được {money} Mora!",
+    "Bạn vừa trúng số và nhận được {money} Mora!",
+    "Bạn vừa bán được một món đồ quý hiếm và thu được {money} Mora!",
+    "Bạn vừa hoàn thành một nhiệm vụ và nhận được {money} Mora!",
+    "Bạn vừa bán được một món đồ và kiếm được {money} Mora!",
+    "Bạn vừa nhận được quà tặng và được {money} Mora!",
+    "Bạn vừa nhận được tiền thưởng và kiếm được {money} Mora!"
 ]
 
 subtractReasonList = [
@@ -26,6 +36,16 @@ subtractReasonList = [
     "Đang phục vụ thì bị đưa đi cách ly bắt buộc, tốn mất {money} Mora.",
     "Bạn sau khi làm xong thì bị nhà nghỉ chém giá, lỗ mất {money} Mora.",
     "Đang đánh bài thì công an ập vô tóm, lỗ mất {money} Mora.",
+    "Bạn vừa bị trộm cắp và mất đi {money} Mora.",
+    "Bạn vừa mua một món đồ đắt tiền và bị trừ đi {money} Mora.",
+    "Bạn vừa bị lừa đảo và mất đi {money} Mora.",
+    "Bạn vừa đặt cược và thua {money} Mora.",
+    "Bạn vừa mua một món đồ giả mạo và bị trừ đi {money} Mora.",
+    "Bạn vừa bị phạt vì vi phạm luật và mất đi {money} Mora.",
+    "Bạn vừa mua một món đồ không cần thiết và bị trừ đi {money} Mora.",
+    "Bạn vừa bị trừ tiền phạt vì quên trả sách và mất đi {money} Mora.",
+    "Bạn vừa mua một món đồ không hợp lý và bị trừ đi {money} Mora.",
+    "Bạn vừa bị trừ tiền phạt vì quên trả phí gửi xe và mất đi {money} Mora."
 ]
 
 
@@ -66,7 +86,7 @@ class Work(commands.Cog):
         if "{nguoithan}" in reason:
             nguoithan = ["Cô", "Dì", "Chú", "Bác", "Ông", "Bà", "Bố", "Mẹ"]
             rand_nguoithan = random.choice(nguoithan)
-            reason.replace("{nguoithan}", rand_nguoithan)
+            reason = reason.replace("{nguoithan}", rand_nguoithan)
 
         await self.bot.db_handler.transaction(ctx.author.id, random_tien, 0, reason=reason)
 
