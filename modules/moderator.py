@@ -1,11 +1,9 @@
 import disnake
 from disnake.ext import commands
 import datetime
-import random
 from typing import Union
 from utils.others import CustomContext
 from utils.client import BotCore
-import asyncio
 
 class Moderator(commands.Cog):
     def __init__(self, bot):
