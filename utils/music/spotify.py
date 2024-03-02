@@ -29,7 +29,9 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
 
     if spotify_link_regex.match(query):
         async with bot.session.get(query, allow_redirects=False) as r:
-            query = str(r).split("Location': \'")[1].split("\'")[0]
+            if 'location' not in r.headers:
+                raise GenericError("**Không có kết quả từ tìm kiếm của bạn...**")
+            query = str(r.headers["location"])
 
     if not (matches := spotify_regex.match(query)):
         return
@@ -201,8 +203,8 @@ def spotify_client(config: dict) -> Optional[spotipy.Spotify]:
 
     if not config['SPOTIFY_CLIENT_SECRET']:
         print(
-            F"[BỎ QUA] - Hỗ trợ Spotify: SPOTIFY_CLIENT_SECRET không được định cấu hình trong máy chủ ENV "
-             F" (hoặc trong tệp .env).\n{'-' * 30}")
+            f"[BỎ QUA] - Hỗ trợ Spotify: SPOTIFY_CLIENT_SECRET không được định cấu hình trong máy chủ ENV "
+             f" (hoặc trong tệp .env).\n{'-' * 30}")
         return
 
     try:
