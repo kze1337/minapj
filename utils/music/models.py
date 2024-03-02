@@ -724,7 +724,7 @@ class LavalinkPlayer(wavelink.Player):
                     err_msg = "Đã xảy ra lỗi khi giải mã bài hát."
                 elif event.message.startswith("Video returned by YouTube isn't what was requested"):
                     err_msg = "Video trả về bởi YouTube không phải là những gì được yêu cầu."
-                elif event.message.staetswith("Something went wrong when looking up the track"):
+                elif event.message.startswith("Something went wrong when looking up the track"):
                     err_msg = "Đã có lỗi xảy ra khi tìm kiếm bài hát"
             except UnboundLocalError:
                 err_msg = "Lỗi rồi =)))"
