@@ -48,21 +48,26 @@ class emoji(commands.Cog):
                        options=[
                             Option(name="url", description="Đường dẫn ảnh để tạo emoji", type=OptionType.string, required=True),
                             Option(name="name", description="Tên emoji", type=OptionType.string, required=False), 
-                            disnake.Option(name="private", description="Chế độ riêng tư", type=OptionType.boolean, required=False, choices=[
+                            Option(name="private", description="Chế độ riêng tư", type=OptionType.boolean, required=False, choices=[
                 OptionChoice(name="Bật", value=True),
                 OptionChoice(name="Tắt", value=False)
             ])
                           ])
     async def emoji_create(self, ctx: ApplicationCommandInteraction, url: str = None, name: str = None, private: bool = False):
-        await ctx.response.defer(ephemeral=private)  # Defer the response to avoid "This interaction failed" error
+        await ctx.response.defer(ephemeral=private)  
         if url is None:
             embed = disnake.Embed(title="❌ Bạn phải cung cấp tham số `url`", color=disnake.Color.red())
             await ctx.edit_original_message(embed=embed)
             return
         
+        if "cdn.discordapp.com" in url:
+            await ctx.edit_original_response("❌ Discord chặn link rồi, hãy thử upload lên các trang khác như imgur, imgbb,... nhé")    
+            return
+        
         list_emoji = []
 
-        if name is None: name = f"emoji_{str(randint(1000, 9999)).zfill(4)}"
+        if name is None: 
+            name = f"emoji_{str(randint(1000, 9999)).zfill(4)}"
 
         if url is not None:
             list_url = url.split(' ')
@@ -73,10 +78,9 @@ class emoji(commands.Cog):
                 items = items.split('?')[0]
                 if await check_url(items) and items.endswith(('.png', '.jpg', '.jpeg', '.gif')):
                     list_emoji.append({
-                        "name": f"emoji_{random.randint(1000, 9999)}" if name is None else name,
+                        "name": name,
                         "url": items
                         })
-                    
         if len(list_emoji) == 0:
             embed = disnake.Embed(
                 title="<:AyakaAnnoyed:1135418690632957993> Không tìm thấy emoji nào trong yêu cầu của bạn",
@@ -84,44 +88,42 @@ class emoji(commands.Cog):
             )
             await ctx.edit_original_response(embed=embed)
             return
-        
-        try: # Func for add emoji by url
+        try:
             for i in range(len(list_emoji)):
                 emoji = list_emoji[i]
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(emoji["url"]) as resp:
+                    async with session.get(emoji["url"], allow_redirects=False) as resp:
                         if resp.status != 200:
                             embed = disnake.Embed(
                                 title="<:AyakaAnnoyed:1135418690632957993> Đã xảy ra lỗi!",
                                 color=disnake.Colour.red(),
                             )
                             await ctx.edit_original_response(embed=embed)
+                            print(resp.status)
                             return
                         img = await resp.read()
+                await ctx.guild.create_custom_emoji(
+                    name=emoji["name"],
+                    image=img
+                )
+                embed = disnake.Embed(
+                    title=f"<:AyakaKiss:1104064345249419405> Đã thêm emoji thành công! {i+1}/{len(list_emoji)}",
+                    color=disnake.Colour.green(),
+                )
+                embed.set_author(
+                    name=emoji["name"],
+                    icon_url=emoji["url"]
+                )
+                embed.set_thumbnail(
+                    url=emoji["url"]
+                )
+                await ctx.edit_original_response(embed=embed)
         except:
             embed = disnake.Embed(
                 title="<:AyakaAnnoyed:1135418690632957993> Đã xảy ra lỗi!",
                 color=disnake.Colour.red(),
             )
             await ctx.edit_original_response(embed=embed)
-            print_exc()
-            return
-
-        try:
-            await ctx.guild.create_custom_emoji(name=name, image=img, reason=f"{ctx.author.name} tạo emoji này")
-            embed = disnake.Embed(title=f"<a:a_emoji169:1204063046717145128> Đã tạo emoji thành công [:{name}:]",
-                                  color=disnake.Color.green())
-            await ctx.edit_original_message(embed=embed)
-        except Exception as e:
-            if "Maximum number of emojis reached" in str(e):
-                await ctx.edit_original_response("Số lượng emoji đã đạt giới hạn tối đa")
-            elif "File cannot be larger than 256.0 kB" in str(e):
-                await ctx.edit_original_response("Kích thước ảnh không được lớn hơn 256kb")
-            else:
-                embed = disnake.Embed(title="❌ Đã xảy ra lỗi khi tạo emoji",
-                                    description=f"```{e}```",
-                                    color=disnake.Color.red())
-            await ctx.edit_original_message(embed=embed)
             
     # @commands.bot_has_guild_permissions(manage_emojis=True)
     @commands.slash_command(
@@ -168,7 +170,7 @@ class emoji(commands.Cog):
                 return
         except IndexError:
             raise GenericError("Đã xảy ra lỗi khi thêm emoji, vui lòng thử lại :E")
-            return
+            
      
         
         
@@ -215,7 +217,7 @@ class emoji(commands.Cog):
                 return
 
             if "Maximum number of emojis reached" in str(e):
-                await ctx.edit_original_response("Server của cậu hết slot rồi, xóa bớt trước khi thêm lại nhé :<")
+                await ctx.edit_original_response("Server của cậu hết slot rồi, xóa bớt trước khi thêm lại nhé :<", components=None)
                 return
 
             embed = disnake.Embed(
