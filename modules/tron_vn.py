@@ -13,7 +13,7 @@ class Tron(commands.Cog):
 
     @commands.slash_command(name="nitro", description="(J4F) Nitro free")
     async def nitro(self, ctx: disnake.AppCommandInteraction):
-        embed = disnake.Embed(title="Món quà tù rừng xanh đây!", description=f"Nitro\n Hết hạn sau 48 giờ.", color=0x2F3136)
+        embed = disnake.Embed(title="Món quà từ rừng xanh đây!", description=f"Nitro\n Hết hạn sau 48 giờ.", color=0x2F3136)
         embed.set_thumbnail("https://media.discordapp.net/attachments/899647915339972641/904326176909176882/EmSIbDzXYAAb4R7.png?ex=65ed94e2&is=65db1fe2&hm=1f84ca22e37acf8500d75c53ef78dd5abe55c98c08747412c184e78cc2208a8a&=&format=webp&quality=lossless")
         view = disnake.ui.View()
         button = view.add_item(disnake.ui.Button(label="Claim", custom_id="claim", style=disnake.ButtonStyle.green))
