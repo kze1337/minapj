@@ -8,7 +8,10 @@ class Tron(commands.Cog):
 
     @commands.command("nitro")
     async def nitro_legacy(self, ctx: CustomContext):
-        await ctx.message.delete()
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
         await self.nitro.callback(self, ctx)
 
     @commands.slash_command(name="nitro", description="(J4F) Nitro free")
