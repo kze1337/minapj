@@ -103,6 +103,7 @@ class Work(commands.Cog):
         user_money = await self.bot.db_handler.get_userinfo(ctx.author.id)
         if user_money["coin"]==0:
             await ctx.channel.send(f"Bạn hết tiền r")
+            return
 
         status = random.randint(0, 1)
         if status == 1:
