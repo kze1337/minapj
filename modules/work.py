@@ -92,7 +92,7 @@ class Work(commands.Cog):
 
         await ctx.channel.send(reason)
 
-    # @commands.cooldown(1, 300, commands.BucketType.user)
+    @commands.cooldown(1, 300, commands.BucketType.user)
     @commands.command(description=f"{desc_prefix}Kiếm tiền nhiều hơn lệnh `work` nhưng sẽ có tỉ lệ thua")
     async def slut(self, ctx: disnake.AppCommandInteraction):
         random_tien = random.randint(4000, 10000)
