@@ -117,6 +117,10 @@ class Users(commands.Cog):
             except TypeError:
                 await ctx.edit_original_response(embed=embed)
 
+    @commands.command(name="register", description=f"{desc_prefix}Đăng ký tài khoản")
+    async def register_legacy(self, ctx: disnake.ApplicationCommandInteraction):
+        pritave = False
+        await self.register.callback(self, ctx, pritave)
 
     @commands.slash_command(name="register",
                             description=f"{desc_prefix} Đăng ký tài khoản",
@@ -546,24 +550,7 @@ class UytinSystem(commands.Cog):
                 color=disnake.Color.red()
             )
             await ctx.send(embed=embed) 
-
-    @commands.command(name="uytin", description="Xem uy tín của người dùng")
-    async def uytin(self, ctx: disnake.ApplicationCommandInteraction):
-        uy_tin = await self.bot.db_handler.uytin(uid=ctx.author.id)
-        if uy_tin["status"] == "success":
-            embed = disnake.Embed(
-                title="Thành công!",
-                description=f"Uy tín hiện tại của người dùng {ctx.author.display_name} là {uy_tin['uytin']}",
-                color=disnake.Color.green()
-            )
-            await ctx.send(embed=embed)
-        else:
-            embed = disnake.Embed(
-                title="Lỗi",
-                description=uy_tin["reason"],
-                color=disnake.Color.red()
-            )
-            await ctx.send(embed=embed, delete_after=5)      
+   
 
 class BankingSystem(commands.Cog):
     def __init__(self, bot: BotCore):
@@ -571,7 +558,11 @@ class BankingSystem(commands.Cog):
 
     @commands.cooldown(1, 10, commands.BucketType.user)
     @commands.command(description=f"{desc_prefix}Chuyển tiền")
-    async def bank(self, ctx: disnake.AppCommandInteraction, amount, user: disnake.Member):
+    async def bank(self, ctx: disnake.AppCommandInteraction, amount: int, user: disnake.Member):
+        if amount is None:
+            return
+        elif not user:
+            return
         userinfo = await self.bot.db_handler.get_userinfo(user.id)
         _userinfo = await self.bot.db_handler.get_userinfo(ctx.author.id)
         if userinfo["status"] == "notfound" or _userinfo["status"] == "notfound":

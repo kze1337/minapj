@@ -92,30 +92,27 @@ class Work(commands.Cog):
 
         await ctx.channel.send(reason)
 
-    @commands.cooldown(1, 300, commands.BucketType.user)
+    # @commands.cooldown(1, 300, commands.BucketType.user)
     @commands.command(description=f"{desc_prefix}Kiếm tiền nhiều hơn lệnh `work` nhưng sẽ có tỉ lệ thua")
     async def slut(self, ctx: disnake.AppCommandInteraction):
         random_tien = random.randint(4000, 10000)
-
         user_info = await check_user(self.bot, ctx, ctx.author.id)
         if not user_info: return
-
         user_money = await self.bot.db_handler.get_userinfo(ctx.author.id)
         if user_money["coin"]==0:
             await ctx.channel.send(f"Bạn hết tiền r")
             return
-
         status = random.randint(0, 1)
         if status == 1:
             await self.bot.db_handler.transaction(ctx.author.id, random_tien, 0, reason="Nhận tiền từ việc chơi game")
             await ctx.channel.send(f"Bạn đã nhận được <:m1_mora:1169483093233631304> {random_tien} mora.")
         else:
-            _random_tien = random.randint(500, 2000)
+            _random_tien = random.randint(-2000, -500)
             if user_money["coin"] < _random_tien: 
                 _random_tien == user_money["coin"]
             _reason = random.choice(subtractReasonList).replace('{money}', "<:m1_mora:1169483093233631304> " + f"{_random_tien}")
             await self.bot.db_handler.transaction(ctx.author.id, 
-                                                    -_random_tien, 
+                                                        _random_tien, 
                                                         0, 
                                                             reason=_reason)
             await ctx.channel.send(_reason)
