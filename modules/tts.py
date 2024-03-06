@@ -1,7 +1,7 @@
 import disnake
 from gtts import gTTS
 from disnake.ext import commands
-from disnake import FFmpegOpusAudio
+from disnake import FFmpegPCMAudio
 import asyncio
 import re
 
@@ -40,6 +40,9 @@ class TTS(commands.Cog):
     @pool_command(description=f"{desc_prefix}Tạo âm thanh từ văn bản", extras={"flags": say_flags})
     async def say(self, ctx: CustomContext, *, flags: str = ""):
 
+        FFMPEG_OPTIONS = {
+        'before_options': '', 'options': '-vn'}
+
         args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
         text = " ".join(args.text + unknown)
         
@@ -53,7 +56,7 @@ class TTS(commands.Cog):
                 else:
                     vc = ctx.author.guild.voice_client
             try:
-                vc.play(FFmpegOpusAudio(source="./Funny_sound/gay.mp3", executable="./ffmpeg/ffmpeg.exe"))
+                vc.play(FFmpegPCMAudio(source="./Funny_sound/gay.mp3", **FFMPEG_OPTIONS))
                 while vc.is_playing():
                     await asyncio.sleep(2)
             except Exception:
@@ -87,7 +90,8 @@ class TTS(commands.Cog):
                     vc = ctx.author.guild.voice_client
 
             try:
-                vc.play(FFmpegOpusAudio(f"./data_tts/{ctx.guild.id}/{ctx.channel.id}_tts.mp3", executable="./ffmpeg/ffmpeg.exe"))
+                vc.play(FFmpegPCMAudio(f"./data_tts/{ctx.guild.id}/{ctx.channel.id}_tts.mp3", **FFMPEG_OPTIONS))
+                
                 while vc.is_playing():
                     await asyncio.sleep(3)
             except Exception:
