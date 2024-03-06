@@ -53,7 +53,7 @@ class TTS(commands.Cog):
                 else:
                     vc = ctx.author.guild.voice_client
             try:
-                vc.play(FFmpegOpusAudio(source="./Funny_sound/gay.mp3", executable="ffmpeg/ffmpeg.exe"))
+                vc.play(FFmpegOpusAudio(source="./Funny_sound/gay.mp3", executable="./ffmpeg/ffmpeg.exe"))
                 while vc.is_playing():
                     await asyncio.sleep(2)
             except Exception:
