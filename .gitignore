@@ -187,3 +187,6 @@ Lavalink.jar
 plugins/lavalink-2.2.2.jar
 plugins/lavasearch-plugin-1.0.0.jar
 plugins/lavasrc-plugin-4.0.1.jar
+modules/minigame.py
+botData/json/cardemojis.json
+data_tts/
