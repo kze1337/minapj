@@ -1,4 +1,6 @@
 disnake>=2.9.1
+disnake[voice]
+python-ffmpeg
 python-dotenv
 user_agent
 requests>=2.31.0
@@ -16,3 +18,13 @@ tornado
 emoji
 spotipy
 urllib3>=2.1.0
+validators
+colorama
+openai==0.28.1
+asgiref==3.6.0
+aiosqlite
+unidecode
+pymongo
+pytz
+google-generativeai
+gTTS
