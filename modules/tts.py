@@ -5,7 +5,7 @@ from disnake import FFmpegOpusAudio
 import asyncio
 import re
 
-
+import traceback
 
 import os
 from utils.client import BotCore as Client
@@ -57,6 +57,7 @@ class TTS(commands.Cog):
                 while vc.is_playing():
                     await asyncio.sleep(2)
             except Exception:
+                traceback.print_exc()
                 await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
                 return
         else:
@@ -90,6 +91,7 @@ class TTS(commands.Cog):
                 while vc.is_playing():
                     await asyncio.sleep(3)
             except Exception:
+                traceback.print_exc()
                 await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
                 return
             
