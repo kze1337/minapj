@@ -3,7 +3,7 @@ from disnake.ext import commands
 
 from utils.client import BotCore as Client
 from utils.GenEMBED import Embed
-
+from utils.music.checks import can_send_message, can_send_message_check
 import random
 
 
@@ -74,7 +74,7 @@ class Work(commands.Cog):
         self.bot = bot
 
     
-
+    @can_send_message_check()
     @commands.cooldown(1, 300, commands.BucketType.user)
     @commands.command(description=f"{desc_prefix}Kiếm tiền!")
     async def work(self, ctx: disnake.AppCommandInteraction):
@@ -92,6 +92,7 @@ class Work(commands.Cog):
 
         await ctx.channel.send(reason)
 
+    @can_send_message_check()
     @commands.cooldown(1, 300, commands.BucketType.user)
     @commands.command(description=f"{desc_prefix}Kiếm tiền nhiều hơn lệnh `work` nhưng sẽ có tỉ lệ thua")
     async def slut(self, ctx: disnake.AppCommandInteraction):

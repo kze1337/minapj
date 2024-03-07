@@ -3,6 +3,7 @@ from disnake.ext import commands
 
 from utils.client import BotCore as Client
 from utils.GenEMBED import Embed
+from utils.music.checks import can_send_message, can_send_message_check
 
 async def check_user(bot, ctx, uid, premium_check = False):
         userinfo = await bot.db_handler.get_userinfo(uid)
@@ -28,6 +29,7 @@ class Minigame(commands.Cog):
     def __init__(self, bot: Client):
          self.bot = bot
 
+    @can_send_message_check()
     @commands.cooldown(1, 14400, commands.BucketType.user)
     @commands.command(description=f"{desc_prefix}Nhận thưởng hằng ngày")
     async def daily(self, ctx: disnake.AppCommandInteraction):
@@ -45,6 +47,7 @@ class Minigame(commands.Cog):
             await ctx.channel.send(f"Đã làm ủy thác ngày hôm nay, lần điểm danh tiếp theo của bạn là 4 tiếng nữa, số lần còn lại ngày hôm nay: {left} lần.")
             return
         await ctx.channel.send("Đã làm ủy thác thành công, bạn nhận được 5000 Mora và 10 Đá!")
+    
 
     
 
