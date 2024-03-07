@@ -507,14 +507,14 @@ class Misc(commands.Cog):
 
         python_ram = psutil.Process(getpid()).memory_info().rss
 
-        ram_msg = f"> <:python:1119837192152424448> **⠂Sử dụng RAM (Python):** `{humanize.naturalsize(python_ram)}`\n"
+        ram_msg = f"> <:python:1204300262911774761> **⠂Sử dụng RAM (Python):** `{humanize.naturalsize(python_ram)}`\n"
 
         if lavalink_ram:
-            ram_msg += f"> <:lavalink:1119829137947893822> **⠂Sử dụng RAM (Lavalink):** `{humanize.naturalsize(lavalink_ram)}`\n" \
-                        f"> <:ram:1119837260532154448> **⠂Mức sử dụng RAM (Tổng cộng):** `{humanize.naturalsize(python_ram + lavalink_ram)}`\n"
+            ram_msg += f"> <:lavalink:1181833300772388984> **⠂Sử dụng RAM (Lavalink):** `{humanize.naturalsize(lavalink_ram)}`\n" \
+                        f"> <:ram:1204300272957001778> **⠂Mức sử dụng RAM (Tổng cộng):** `{humanize.naturalsize(python_ram + lavalink_ram)}`\n"
         else:
-            ram_msg += f"> <:lavalink:1119829137947893822> **⠂Sử dụng RAM (Lavalink):** `Offline`\n" \
-                        f"> <:ram:1119837260532154448> **⠂Mức sử dụng RAM (Tổng cộng):** `{humanize.naturalsize(python_ram + 0)}`\n"
+            ram_msg += f"> <:lavalink:1181833300772388984> **⠂Sử dụng RAM (Lavalink):** `Offline`\n" \
+                        f"> <:ram:1204300272957001778> **⠂Mức sử dụng RAM (Tổng cộng):** `{humanize.naturalsize(python_ram + 0)}`\n"
 
         guild = bot.get_guild(inter.guild_id) or inter.guild
 
@@ -676,8 +676,8 @@ class Misc(commands.Cog):
         if bot.pool.commit:
             embed.description += f"> <:upvote:1146329733102047242> **⠂Phiên bản hiện tại:** `{bot.pool.commit[:7]}`\n"
 
-        embed.description += f"> <:python:1119837192152424448> **Phiên bản của Python:** `{platform.python_version()}`\n" \
-                             f"> <:disnake:1119830259756454019> **Phiên bản của Disnake:** `Pre-release {disnake.__version__}`\n" \
+        embed.description += f"> <:python:1204300262911774761> **Phiên bản của Python:** `{platform.python_version()}`\n" \
+                             f"> <:disnake:1204300267257069569> **Phiên bản của Disnake:** `Pre-release {disnake.__version__}`\n" \
                              f"> <:home:1208751844373827607> **Hệ điều hành đang sử dụng:** `{platform.system()} {platform.release()} {platform.machine()}`\n" \
                              f"> 📶 **Độ trễ API:** `{latency_bot}ms`\n" \
                              f"{ram_msg}" \

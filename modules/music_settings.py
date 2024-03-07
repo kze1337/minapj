@@ -1472,8 +1472,8 @@ class MusicSettings(commands.Cog):
             cpu_usage = f"{node.stats.lavalink_load * 100:.2f}"
             started = node.stats.players
 
-            txt += f' <:ram:1119837260532154448> RAM: `{used}/{free}`\n' \
-                   f' <:ram:1119837260532154448> Tổng RAM: `{total}`\n' \
+            txt += f' <:ram:1204300272957001778> RAM: `{used}/{free}`\n' \
+                   f' <:ram:1204300272957001778> Tổng RAM: `{total}`\n' \
                    f' <:cpu:1146331051556339712> Số nhân CPU: `{cpu_cores}`\n' \
                    f' <:cpu:1146331051556339712> Mức sử dụng CPU: `{cpu_usage}%`\n' \
                    f' <a:z55:1203596745087520850> Phiên bản Lavalink `{node.version}`\n' \
