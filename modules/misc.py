@@ -1002,7 +1002,7 @@ class GuildLog(commands.Cog):
         async with ClientSession() as session:
             webhook = disnake.Webhook.from_url(self.hook_url, session=session)
             await webhook.send(
-                content=", ".join(f"<@{owner_id}>" for owner_id in self.bot.owner_ids) or self.bot.owner.mention,
+                content=f"Số máy chủ hiện tại {len(self.bot.guilds)} ",
                 username=self.bot.user.name,
                 avatar_url=self.bot.user.display_avatar.replace(size=256, static_format="png").url,
                 embed=embed
