@@ -558,10 +558,10 @@ class BankingSystem(commands.Cog):
 
     @commands.cooldown(1, 10, commands.BucketType.user)
     @commands.command(description=f"{desc_prefix}Chuyển tiền")
-    async def bank(self, ctx: disnake.AppCommandInteraction, amount: int, user: disnake.Member):
+    async def bank(self, ctx: disnake.AppCommandInteraction, amount: int = None, user: disnake.Member = None):
         if amount is None:
             return
-        elif not user:
+        elif user is None:
             return
         userinfo = await self.bot.db_handler.get_userinfo(user.id)
         _userinfo = await self.bot.db_handler.get_userinfo(ctx.author.id)
