@@ -307,7 +307,7 @@ class PlayerSession(commands.Cog):
                     await asyncio.sleep(1)
 
         except Exception:
-            print(f"{self.bot.user} - Falha ao retomar player {data['_id']}:\n{traceback.format_exc()}")
+            print(f"{self.bot.user} - Không tiếp tục tiếp tục người chơi {data['_id']}:\n{traceback.format_exc()}")
 
         self.bot.player_resumed = True
 

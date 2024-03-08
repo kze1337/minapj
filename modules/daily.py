@@ -1,9 +1,10 @@
 import disnake
 from disnake.ext import commands
-
+import random
+import asyncio
 from utils.client import BotCore as Client
 from utils.GenEMBED import Embed
-from utils.music.checks import can_send_message, can_send_message_check
+from utils.music.checks import can_send_message_check
 
 async def check_user(bot, ctx, uid, premium_check = False):
         userinfo = await bot.db_handler.get_userinfo(uid)
@@ -47,10 +48,6 @@ class Minigame(commands.Cog):
             await ctx.channel.send(f"Đã làm ủy thác ngày hôm nay, lần điểm danh tiếp theo của bạn là 4 tiếng nữa, số lần còn lại ngày hôm nay: {left} lần.")
             return
         await ctx.channel.send("Đã làm ủy thác thành công, bạn nhận được 5000 Mora và 10 Đá!")
-    
-
-    
-
 
 def setup(bot: Client):
       bot.add_cog(Minigame(bot))
