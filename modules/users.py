@@ -13,13 +13,13 @@ success_icon = "https://cdn.discordapp.com/attachments/1117362735911538768/11311
 fail_icon = "https://media.discordapp.net/attachments/1158024306006171722/1172548248712519690/New_Project_12_1F9D8FE.gif?ex=6560b7a7&is=654e42a7&hm=3e1ad259424752013faa667b7fd45f93dece5975d3eccdf4ba773f498fc02963&"
 
 platform_icon = {
-    "facebook": "<:facebook:1130366568577105990>",
-    "tiktok": "<:tiktok:1131544255630934037>",
-    "github": "<:githublogo:1130371496322285608>",
-    "discord": "<:discord:1130373809241862144>",
-    "telegram": "<:telegram:1130369288881053777>",
-    "website": "<:chrome:1119919035585404968>",
-    "youtube": "<:youtube:1130369763512680520>",
+    "facebook": "<:facebook:1143599307023454208>",
+    "tiktok": "<:Tiktok:1139078822453596170>",
+    "github": "<:github_team:1103351450299543584>",
+    "discord": "<:Discord:1155781686349545489>",
+    "telegram": "☎️",
+    "website": "<:chromium:1185186730781982772>",
+    "youtube": "<:YouTube:1090095507684212817>",
 }
 
 def gen_banned_embed(time, reason):

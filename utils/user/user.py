@@ -87,7 +87,14 @@ class database_handler():
             "signature": data["signature"],
             "link": data["link"]
         }
-   
+    
+    async def fetch_money(self, uid: int):
+        "Lấy thông tin tiền của người dùng"
+        userinfo = await self.get_userinfo(uid)
+        if userinfo["status"] == "success":
+            coin = userinfo["coin"]
+            return coin
+
     async def register(self, uid: int):
         "Đăng kí tài khoản trên hệ thống"
         ban_status = await self.is_banned(uid)
