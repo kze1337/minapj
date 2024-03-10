@@ -37,6 +37,8 @@ class TTS(commands.Cog):
     say_flags.add_argument("-lang", '-lg', type=str, default="vi", help="Ngôn ngữ cần chuyển, mặc định là tiếng việt")
 
     @check_voice()
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    @commands.max_concurrency(1, per=commands.BucketType.member, wait=False)
     @pool_command(description=f"{desc_prefix}Tạo âm thanh từ văn bản", extras={"flags": say_flags})
     async def say(self, ctx: CustomContext, *, flags: str = ""):
 
@@ -46,7 +48,7 @@ class TTS(commands.Cog):
         args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
         text = " ".join(args.text + unknown)
         
-        if "gay" in text.lower():
+        if text.lower() == "gay":
             _gayvc = ctx.author.voice.channel
             try:
                 vc = await _gayvc.connect()
@@ -99,12 +101,15 @@ class TTS(commands.Cog):
                 await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
                 return
             
+
+    @check_voice()
     @commands.command(description=f"{desc_prefix}Ngắt kết nối với kênh thoại")
     async def tts_stop(self, ctx: disnake.ApplicationCommandInteraction):
         vc = ctx.author.guild.voice_client
         if vc:
             await vc.disconnect()
             await ctx.channel.send("Đã ngắt kết nối với kênh thoại.")
+            os.remove(f"./data_tts/{ctx.guild.id}/{ctx.channel.id}_tts.mp3")
         else:
             await ctx.channel.send("Tôi đang không kết nối với kênh thoại nào.")
 
