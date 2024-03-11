@@ -39,7 +39,7 @@ class TTS(commands.Cog):
     @check_voice()
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.max_concurrency(1, per=commands.BucketType.member, wait=False)
-    @pool_command(description=f"{desc_prefix}Tạo âm thanh từ văn bản", extras={"flags": say_flags})
+    @pool_command(description=f"{desc_prefix}Tạo âm thanh từ văn bản", extras={"flags": say_flags}, aliases=["s", "speak"])
     async def say(self, ctx: CustomContext, *, flags: str = ""):
 
         FFMPEG_OPTIONS = {
@@ -103,7 +103,7 @@ class TTS(commands.Cog):
             
 
     @check_voice()
-    @commands.command(description=f"{desc_prefix}Ngắt kết nối với kênh thoại")
+    @commands.command(description=f"{desc_prefix}Ngắt kết nối với kênh thoại", aliases=["stoptts"])
     async def tts_stop(self, ctx: disnake.ApplicationCommandInteraction):
         vc = ctx.author.guild.voice_client
         if vc:

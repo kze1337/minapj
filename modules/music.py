@@ -1695,7 +1695,7 @@ class Music(commands.Cog):
     @is_requester()
     @check_queue_loading()
     @check_voice()
-    @pool_command(name="skip", aliases=["next", "n", "s", "pular", "skipto"], cooldown=skip_back_cd,
+    @pool_command(name="skip", aliases=["next", "n", "pular", "skipto"], cooldown=skip_back_cd,
                   max_concurrency=skip_back_mc, description=f"Bỏ qua bài hát hiện tại đang phát.",
                   extras={"flags": case_sensitive_args}, only_voiced=True,
                   usage="{prefix}{cmd} <termo>\nEx: {prefix}{cmd} sekai")

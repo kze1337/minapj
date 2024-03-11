@@ -108,12 +108,12 @@ class Work(commands.Cog):
             await self.bot.db_handler.transaction(ctx.author.id, random_tien, 0, reason="Nhận tiền từ việc chơi game")
             await ctx.channel.send(f"Bạn đã nhận được <:m1_mora:1169483093233631304> {random_tien} mora.")
         else:
-            _random_tien = random.randint(-2000, -500)
+            _random_tien = random.randint(2000, 500)
             if user_money["coin"] < _random_tien: 
                 _random_tien == user_money["coin"]
             _reason = random.choice(subtractReasonList).replace('{money}', "<:m1_mora:1169483093233631304> " + f"{_random_tien}")
             await self.bot.db_handler.transaction(ctx.author.id, 
-                                                        _random_tien, 
+                                                        0 - _random_tien, 
                                                         0, 
                                                             reason=_reason)
             await ctx.channel.send(_reason)
