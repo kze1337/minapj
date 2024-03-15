@@ -4329,6 +4329,47 @@ class Music(commands.Cog):
         player.message = None
         await thread.edit(archived=True, locked=True, name=f"Tên: {thread.name}")
 
+    @commands.Cog.listener('on_ready')
+    async def resume_players_ready(self):
+
+        if not self.bot.bot_ready:
+            return
+
+        for guild_id in list(self.bot.music.players):
+
+            try:
+
+                player: LavalinkPlayer = self.bot.music.players[guild_id]
+
+                try:
+                    channel_id = player.guild.me.voice.channel.id
+                except AttributeError:
+                    channel_id = player.channel_id
+
+                vc = self.bot.get_channel(channel_id) or player.last_channel
+
+                try:
+                    player.guild.voice_client.cleanup()
+                except:
+                    pass
+
+                if not vc:
+                    print(
+                        f"{self.bot.user} - {player.guild.name} [{guild_id}] - Trình phát không thể kết nối lại với kênh thoại.")
+                    try:
+                        await player.destroy()
+                    except:
+                        traceback.print_exc()
+                    continue
+
+                await player.connect(vc.id)
+
+                if not player.is_paused and not player.is_playing:
+                    await player.process_next()
+                print(f"{self.bot.user} - {player.guild.name} [{guild_id}] - Trình phát đã đuọc kết nối lại.")
+            except:
+                traceback.print_exc()
+
     async def is_request_channel(self, ctx: Union[disnake.AppCmdInter, disnake.MessageInteraction, CustomContext], *,
                                  data: dict = None, ignore_thread=False) -> bool:
 
@@ -6116,7 +6157,7 @@ class Music(commands.Cog):
             self.bot.loop.create_task(self.connect_node(v))
 
         if start_local:
-            self.connect_local_lavalink()
+            await self.connect_local_lavalink()
 
     @commands.Cog.listener("on_wavelink_node_connection_closed")
     async def node_connection_closed(self, node: wavelink.Node):
