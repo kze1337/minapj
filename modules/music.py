@@ -1899,17 +1899,14 @@ class Music(commands.Cog):
             await self.interaction_message(inter, "trở lại phần đầu của bài hát.", emoji="⏪")
             return
 
-        if player.keep_connected:
+        try:
+            track = player.played.pop()
+        except:
             track = player.queue.pop()
-            player.queue.appendleft(player.current)
-        else:
-            try:
-                track = player.played.pop()
-            except:
-                track = player.queue.pop()
+            
 
-            if player.current and not player.current.autoplay:
-                player.queue.appendleft(player.current)
+        if player.current and not player.current.autoplay:
+            player.queue.appendleft(player.current)
 
         player.last_track = None
 
