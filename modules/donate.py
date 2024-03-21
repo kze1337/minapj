@@ -6,7 +6,7 @@ class Donate(commands.Cog):
         self.bot = bot
 
 
-    @commands.slash_command(name=disnake.Localized("donate", data={disnake.Locale.vi: "ủng_hộ"}), description="Ủng hộ bot bằng cách donate")
+    @commands.slash_command(name="donate", description="Ủng hộ bot bằng cách donate")
     async def donate(self, ctx: disnake.ApplicationCommandInteraction):
         embed =  disnake.Embed()
         embed.title = "Ủng hộ bot"

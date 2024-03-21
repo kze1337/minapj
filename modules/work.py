@@ -42,9 +42,8 @@ subtractReasonList = [
     "Bạn vừa đặt cược và thua {money} Mora.",
     "Bạn vừa mua một món đồ giả mạo và bị trừ đi {money} Mora.",
     "Bạn vừa bị phạt vì vi phạm luật và mất đi {money} Mora.",
-    "Bạn vừa mua một món đồ không cần thiết và bị trừ đi {money} Mora.",
     "Bạn vừa bị trừ tiền phạt vì quên trả sách và mất đi {money} Mora.",
-    "Bạn vừa mua một món đồ không hợp lý và bị trừ đi {money} Mora.",
+    "Bạn vừa mua một món đồ không hợp pháp và bị phạt {money} Mora.",
     "Bạn vừa bị trừ tiền phạt vì quên trả phí gửi xe và mất đi {money} Mora."
 ]
 
