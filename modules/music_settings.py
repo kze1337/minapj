@@ -394,7 +394,6 @@ class MusicSettings(commands.Cog):
     setup_args.add_argument('-reset', '--reset', '-purge', '--purge', action="store_true",
                              help="Xóa tin nhắn kênh đã chọn (tối đa 100 tin nhắn, không hiệu quả trong diễn đàn).")
 
-    @commands.is_owner()
     @commands.has_guild_permissions(manage_guild=True)
     @commands.command(
         name="setup", aliases=["songrequestchannel", "sgrc"], usage="{prefix}{cmd} [id|#kênh]\nEx: {prefix}{cmd} #Anh-Ba-Phát-Nhạc",
@@ -412,7 +411,6 @@ class MusicSettings(commands.Cog):
         await self.setup.callback(self=self, interaction=ctx, target=channel,
                                   purge_messages=args.reset)
 
-    @commands.is_owner()
     @commands.slash_command(
         description=f"{desc_prefix}Tạo/chọn một kênh chuyên dụng để yêu cầu bài hát và tạo một trình phát cố định.",
         default_member_permissions=disnake.Permissions(manage_guild=True), cooldown=setup_cd, max_concurrency=setup_mc,
@@ -455,12 +453,12 @@ class MusicSettings(commands.Cog):
         if isinstance(target, disnake.ForumChannel) and not isinstance(inter, CustomContext):
 
             await inter.response.send_modal(
-                title="Chọn một tên cho bài đăng (tối đa 30Seg.)",
+                title="Chọn một tên cho bài đăng (tối đa 30giây.)",
                 custom_id=str(inter.id),
                 components=[
                     disnake.ui.TextInput(
                         style=disnake.TextInputStyle.short,
-                        label="Nome",
+                        label="Tên",
                         custom_id="forum_title",
                         min_length=4,
                         max_length=30,
@@ -604,7 +602,7 @@ class MusicSettings(commands.Cog):
 
             embeds = [
                 disnake.Embed(
-                    description="**Chọn một kênh " + ("Hoặc nhấp vào một trong các nút bên dưới để tạo một kênh mới để đặt hàng nhạc." if guild.me.guild_permissions.manage_channels else "dưới:") +'**' ,
+                    description="**Chọn một kênh " + ("Hoặc nhấp vào một trong các nút bên dưới để tạo một kênh mới để yêu cầu bài hát." if guild.me.guild_permissions.manage_channels else "dưới:") +'**' ,
                     color=color
                 ).set_footer(text="Bạn chỉ có 45 giây để chọn/nhấp vào một tùy chọn.")
             ]
@@ -613,7 +611,7 @@ class MusicSettings(commands.Cog):
                 embeds.append(
                     disnake.Embed(
                         description=f"Các Nút Tạo kênh đã bị vô hiệu hóa do bot **{bot.user.mention}** "
-                                    "Không có quyền của ** Quản lý các kênh ** trên máy chủ.",
+                                    "Không có quyền ** Quản lý các kênh ** trên máy chủ.",
                         color=color
                     )
                 )
