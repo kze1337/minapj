@@ -91,8 +91,14 @@ class TTS(commands.Cog):
                 else:
                     vc = ctx.author.guild.voice_client
 
+            global channel_id, guild_id
+
+            channel_id = ctx.channel.id
+            guild_id = ctx.guild.id
+
+
             try:
-                vc.play(FFmpegPCMAudio(f"./data_tts/{ctx.guild.id}/{ctx.channel.id}_tts.mp3", **FFMPEG_OPTIONS))
+                vc.play(FFmpegPCMAudio(f"./data_tts/{guild_id}/{channel_id}_tts.mp3", **FFMPEG_OPTIONS))
                 
                 while vc.is_playing():
                     await asyncio.sleep(3)
@@ -109,7 +115,10 @@ class TTS(commands.Cog):
         if vc:
             await vc.disconnect()
             await ctx.channel.send("Đã ngắt kết nối với kênh thoại.")
-            os.remove(f"./data_tts/{ctx.guild.id}/{ctx.channel.id}_tts.mp3")
+            try:
+                os.remove(f"./data_tts/{guild_id}/{channel_id}_tts.mp3")
+            except FileNotFoundError:
+                pass
         else:
             await ctx.channel.send("Tôi đang không kết nối với kênh thoại nào.")
 
