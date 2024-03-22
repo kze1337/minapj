@@ -645,7 +645,7 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
     else:
         opts = [disnake.SelectOption(label=f"{b.user}", value=f"{b.user.id}", emoji="🎶") for b in bots.values()]
 
-        opts.append(disnake.SelectOption(label="Cancelar", value="cancel", emoji="❌"))
+        opts.append(disnake.SelectOption(label="Hủy bỏ", value="cancel", emoji="❌"))
 
         try:
             add_id = f"_{inter.id}"
