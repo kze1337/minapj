@@ -4,7 +4,7 @@ from disnake.ext import commands
 from disnake import FFmpegPCMAudio
 import asyncio
 import re
-
+import platform
 import traceback
 
 import os
@@ -14,15 +14,16 @@ from utils.music.checks import check_voice
 
 
 
+
 async def check_lang(lang):
     pattern = r"^[a-z]{2}$"
     return bool(re.match(pattern, lang))
 
-async def process_tts(text, guild_id, channel_id, lang):
+async def process_tts(text, guild_id, channel_id, lang, bot_id):
     tts = gTTS(text, lang=lang)
-    if not os.path.exists(f'./data_tts/{guild_id}'):
-        os.makedirs(f'./data_tts/{guild_id}')
-    tts.save(f'./data_tts/{guild_id}/{channel_id}_tts.mp3')
+    if not os.path.exists(f'./data_tts/{bot_id}/{guild_id}'):
+        os.makedirs(f'./data_tts/{bot_id}/{guild_id}')
+    tts.save(f'./data_tts/{bot_id}/{guild_id}/{channel_id}_tts.mp3')
 
 class TTS(commands.Cog):
     emoji = "🔊"
@@ -41,6 +42,9 @@ class TTS(commands.Cog):
     @commands.max_concurrency(1, per=commands.BucketType.member, wait=False)
     @pool_command(description=f"{desc_prefix}Tạo âm thanh từ văn bản", extras={"flags": say_flags}, aliases=["s", "speak"])
     async def say(self, ctx: CustomContext, *, flags: str = ""):
+        if platform.system() == "Windows":
+            await ctx.channel.send("Hãy xài WSL hoặc chỉnh sửa lại cấu trúc code để module này hoạt động!")
+            return
 
         FFMPEG_OPTIONS = {
         'before_options': '', 'options': '-vn'}
@@ -61,10 +65,15 @@ class TTS(commands.Cog):
                 vc.play(FFmpegPCMAudio(source="./Funny_sound/gay.mp3", **FFMPEG_OPTIONS))
                 while vc.is_playing():
                     await asyncio.sleep(2)
-            except Exception:
-                traceback.print_exc()
-                await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
-                return
+            except Exception as e:
+                if "ffmepg was not found" in str(e):
+                    await ctx.channel.send("Không tìm thấy ffmpeg, hãy chắc chắn rằng bạn đã chạy tệp autoinstall.sh`")
+                    traceback.print_exc()
+                    return
+                else:
+                    traceback.print_exc()
+                    await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
+                    return
         else:
         
             # Save TTS file
@@ -74,7 +83,7 @@ class TTS(commands.Cog):
                     await ctx.channel.send("Ngôn ngữ không được hỗ trợ, nếu bạn muốn xài ngôn ngữ khác hãy chắc chắn là nó là 2 kí tự đầu của ngôn ngữ đó, tham khảo trang web sau: [WEB](https://cloud.google.com/speech-to-text/docs/speech-to-text-supported-languages)")
                     return
                 
-                await process_tts(text, ctx.guild.id, ctx.channel.id, args.lang)
+                await process_tts(text, ctx.guild.id, ctx.channel.id, args.lang, ctx.bot.user.id)
             except Exception as e:
                 if "Language not supported" in str(e):
                     await ctx.channel.send("Ngôn ngữ không được hỗ trợ, nếu bạn muốn xài ngôn ngữ khác hãy chắc chắn là nó là 2 kí tự đầu của ngôn ngữ đó, ví dụ: \njapan: ja.")
@@ -98,14 +107,27 @@ class TTS(commands.Cog):
 
 
             try:
-                vc.play(FFmpegPCMAudio(f"./data_tts/{guild_id}/{channel_id}_tts.mp3", **FFMPEG_OPTIONS))
+                vc.play(FFmpegPCMAudio(f"./data_tts/{ctx.bot.user.id}/{guild_id}/{channel_id}_tts.mp3", **FFMPEG_OPTIONS))
                 
                 while vc.is_playing():
                     await asyncio.sleep(3)
-            except Exception:
-                traceback.print_exc()
-                await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
-                return
+            except Exception as e:
+                if "ffmepg was not found" in str(e):
+                    await ctx.channel.send("Không tìm thấy ffmpeg, hãy chắc chắn rằng bạn đã chạy tệp autoinstall.sh`")
+                    traceback.print_exc()
+                    return
+                else:
+                    traceback.print_exc()
+                    await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
+                    return
+            
+    # async def delete_tts_data(guild, channel_id):
+    #     try:
+    #         os.remove(f"./data_tts/{guild}/{channel_id}_tts.mp3")
+    #     except FileNotFoundError:
+    #         pass
+    #     except Exception as e:
+    #         print(repr(e))
             
 
     @check_voice()
@@ -116,9 +138,12 @@ class TTS(commands.Cog):
             await vc.disconnect()
             await ctx.channel.send("Đã ngắt kết nối với kênh thoại.")
             try:
-                os.remove(f"./data_tts/{guild_id}/{channel_id}_tts.mp3")
+                os.remove(f"./data_tts/{ctx.bot.user.id}/{guild_id}/{channel_id}_tts.mp3")
             except FileNotFoundError:
+                print("Error at line 122: File Not Found :<")
                 pass
+            except Exception as e:
+                await ctx.channel.send(f"Đã xảy ra lỗi: {repr(e)}")
         else:
             await ctx.channel.send("Tôi đang không kết nối với kênh thoại nào.")
 
