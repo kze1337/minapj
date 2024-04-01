@@ -196,12 +196,14 @@ class Player:
         self.guild_id = guild_id
         self.node = node
 
-        self.last_update = None
+        self.last_update = time.time() * 1000
         self.last_position = None
         self.position_timestamp = None
         self.ping = None
 
         self._voice_state = {}
+
+        self._temp_data = {}
 
         self.volume = 100
         self.paused = False
@@ -295,15 +297,24 @@ class Player:
                 await self.node._send(op='voiceUpdate', guildId=str(self.guild_id), **self._voice_state)
         else:
             try:
-                session_id: str = self._voice_state["sessionId"]
-                token: str = self._voice_state["event"]["token"]
-                endpoint: str = self._voice_state["event"]["endpoint"]
+                data = {
+                    "voice": {
+                        "sessionId": self._voice_state["sessionId"],
+                        "token": self._voice_state["event"]["token"],
+                        "endpoint": self._voice_state["event"]["endpoint"]
+
+                    }
+                }
             except KeyError:
                 pprint.pprint(self._voice_state)
                 traceback.print_exc()
                 return
 
-            await self.node.update_player(self.guild_id, data={"voice": {"sessionId": session_id, "token": token, "endpoint": endpoint}})
+            if self._temp_data:
+                data.update(self._temp_data.copy())
+                self._temp_data.clear()
+
+            await self.node.update_player(self.guild_id, data=data)
 
     async def hook(self, event) -> None:
         if isinstance(event, TrackEnd) and event.reason in ("STOPPED", "FINISHED"):
@@ -345,7 +356,7 @@ class Player:
         channel = self.bot.get_channel(channel_id)
 
         if not guild.voice_client:
-            await channel.connect(cls=WavelinkVoiceClient, reconnect=False)
+            await channel.connect(cls=WavelinkVoiceClient, reconnect=True)
             __log__.info(f'PLAYER | Connected to voice channel:: {self.channel_id}')
 
         elif not guild.me.voice:
@@ -378,7 +389,7 @@ class Player:
         self.channel_id = None
         await self._get_shard_socket(guild.shard_id).voice_state(self.guild_id, None)
 
-    async def play(self, track: Track, *, replace: bool = True, start: int = 0, end: int = 0, **kwargs) -> None:
+    async def play(self, track: Track, *, replace: bool = True, start: int = 0, end: int = 0, temp_id: str = None, **kwargs) -> None:
         """|coro|
 
         Play a WaveLink Track.
@@ -410,7 +421,7 @@ class Player:
             payload = {
                 'op': 'play',
                 'guildId': str(self.guild_id),
-                'track': track.id,
+                'track': temp_id or track.id,
                 'noReplace': not replace,
                 'startTime': start,
             }
@@ -436,7 +447,7 @@ class Player:
                 pause = self.paused
 
             payload = {
-                "encodedTrack": track.id,
+                "encodedTrack": temp_id or track.id,
                 "volume": vol,
                 "position": int(start),
                 "paused": pause,

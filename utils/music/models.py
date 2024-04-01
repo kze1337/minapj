@@ -628,7 +628,12 @@ class LavalinkPlayer(wavelink.Player):
         if self.is_closing:
             return
 
+        await self.bot.wait_until_ready()
+
         if isinstance(event, wavelink.TrackEnd):
+
+            if event.node != self.node:
+                return
 
             self.bot.dispatch("wavelink_track_end", self.node, event)
 
@@ -653,8 +658,6 @@ class LavalinkPlayer(wavelink.Player):
             except:
                 pass
 
-            await self.bot.wait_until_ready()
-
             await self.track_end()
 
             self.update = False
@@ -665,7 +668,13 @@ class LavalinkPlayer(wavelink.Player):
 
         if isinstance(event, wavelink.TrackStart):
 
+            if event.node != self.node:
+                return
+
             self.start_time = disnake.utils.utcnow()
+
+            if not self.current.autoplay:
+                self.queue_autoplay.clear()
 
             if self.auto_pause:
                 return
@@ -681,8 +690,6 @@ class LavalinkPlayer(wavelink.Player):
             if not send_message_perm:
                 self.text_channel = None
                 return
-
-            await self.bot.wait_until_ready()
 
             if not self.guild.me.voice:
                 try:
@@ -703,56 +710,29 @@ class LavalinkPlayer(wavelink.Player):
             return
 
         if isinstance(event, wavelink.TrackException):
-            try:
-                if event.severity == "COMMON":
-                    level_err = "Thường"
-                elif event.severity == "SUSPICIOUS":
-                    level_err = "Đáng ngờ"
-                elif event.severity == "FAULT":
-                    level_err = "Lỗi"
-                else:
-                    level_err = "Nghiêm trọng"
-            except Exception:
-                level_err = "Không xác định"
 
-            try:
-                if event.message.startswith("This video is no longer available due to a copyright claim by"):
-                    err_msg = f"Video này không còn khả dụng do một khiếu nại bản quyền từ {event.message.split('by')[1].split('.')[0].strip()}"
-                elif event.message.startswith("Something broke when playing the track."):
-                    err_msg = "Đã xảy ra lỗi khi phát bài hát."
-                elif event.message.startswith("Something went wrong when decoding the track."):
-                    err_msg = "Đã xảy ra lỗi khi giải mã bài hát."
-                elif event.message.startswith("Video returned by YouTube isn't what was requested"):
-                    err_msg = "Video trả về bởi YouTube không phải là những gì được yêu cầu."
-                elif event.message.startswith("Something went wrong when looking up the track"):
-                    err_msg = "Đã có lỗi xảy ra khi tìm kiếm bài hát"
-            except UnboundLocalError:
-                err_msg = "Lỗi rồi =)))"
-                
-
-            track = self.last_track
+            track = self.current or self.last_track
+            node_info = f"`{event.node.identifier}`" if event.node.identifier == self.node.identifier else f"`{self.node.identifier} | {event.node.identifier}`"
             embed = disnake.Embed(
-                title="Lỗi khi chơi bài hát",
-                description=f"**Không chơi bài hát:\n[{track.title}]({track.uri or track.search_uri})**\n"
-                            f"**Mức độ:** `{level_err}`\n"
-                            f"**Máy chủ âm nhạc:** `{self.node.identifier}`\n"
-                            f"**Lý do:** \n```{err_msg}```\n",
+                description=f"**Không thể phát nhạc:\n[{track.title}]({track.uri or track.search_uri})** ```java\n{event.message}```\n"
+                            f"**Gây ra bởi:** ```java\n{event.cause[:200]}```\n"
+                            f"**Mức độ lỗi:** `{event.severity}`\n"
+                            f"**Máy chủ âm nhạc:** {node_info}",
                 color=disnake.Colour.red())
 
             error_format = pprint.pformat(event.data)
 
             async def send_report():
 
-                print(("-" * 50) + f"\nLỗi khi chơi bài hát: {track.uri or track.search_uri}\n"
-                                   f"Máy chủ: {self.node.identifier}\n" + ("-" * 50))
-
-                logger = logging.getLogger(__name__)
-                logger.setLevel(logging.ERROR)
-                handler = logging.FileHandler(".\.logs\lavalink_error.log")
-                logger.addHandler(handler)
-                logger.critical(f"{self.node.identifier}\n {error_format}")
+                print(("-" * 50) + f"\nLỗi phát nhạc: {track.uri or track.search_uri}\n"
+                                   f"Máy chủ: {self.node.identifier}\n"
+                                   f"{error_format}\n" + ("-" * 50))
 
                 await self.report_error(embed, track)
+
+            if event.node.identifier != self.node.identifier:
+                await send_report()
+                return
 
             if self.locked:
                 self.set_command_log(
@@ -766,17 +746,47 @@ class LavalinkPlayer(wavelink.Player):
             self.current = None
 
             error_403 = False
+            video_not_available = False
 
             cooldown = 10
 
-            await self.bot.wait_until_ready()
+            if event.cause.startswith((
+                    "java.net.SocketTimeoutException: Read timed out",
+                    "java.net.SocketException: Network is unreachable"
+            )) \
+                or (video_not_available:=event.cause.startswith((
+                "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: This video is not available",
+                "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: YouTube WebM streams are currently not supported."
+            ))
+            or event.message == "Video returned by YouTube isn't what was requested"):
+
+                try:
+                    self._new_node_task.cancel()
+                except:
+                    pass
+
+                await send_report()
+
+                if video_not_available:
+                    self.node.native_yt = False
+                    self.current = None
+                    self.queue.appendleft(track)
+                    self.locked = False
+                    self.set_command_log(
+                        text=f"Do sự cố kỹ thuật trên máy chủ `{self.node.identifier}` nên người chơi đang sử dụng phương pháp thay thế để tải nhạc từ YouTube"
+                             "(Có lẽ bài hát được phát sẽ khác với mong đợi).",
+                        emoji="⚠️"
+                    )
+                    await self.process_next(start_position=self.position)
+
+                else:
+                    self._new_node_task = self.bot.loop.create_task(self._wait_for_new_node(
+                        f"Máy chủ nhạc **{self.node.identifier}** hiện không khả dụng"
+                        f"(đang chờ máy chủ mới có sẵn)."))
+                return
 
             if (event.error == "This IP address has been blocked by YouTube (429)" or
-                event.message == "Video returned by YouTube isn't what was requested" or
-                event.cause.startswith(
-                    "java.net.SocketTimeoutException: Read timed out",
-                    "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: This video is not available",
-                ) or
+                #event.message == "Video returned by YouTube isn't what was requested" or
                 (error_403 := event.cause.startswith(("java.lang.RuntimeException: Not success status code: 403",
                                                       "java.io.IOException: Invalid status code for video page response: 400")))
             ):
@@ -948,14 +958,14 @@ class LavalinkPlayer(wavelink.Player):
             else:
                 print(
                     ("-" * 15) +
-                    f"\nVoice channel error!!"
-                    f"\nBot: {self.bot.user} [{self.bot.user.id}] | " + ("Online" if self.bot.is_ready() else "Offline :<") +
+                    f"\nLỗi kênh thoại!"
+                    f"\nBot: {self.bot.user} [{self.bot.user.id}] | " + (
+                        "Online" if self.bot.is_ready() else "Offline") +
                     f"\nGuild: {self.guild.name} [{self.guild.id}]"
-                    f"\nKênh: {vc.name} [#{vc.id}]"
+                    f"\nChannel: {vc.name} [{vc.id}]"
                     f"\nServer: {self.node.identifier} | code: {event.code} | reason: {event.reason}\n" +
                     ("-" * 15)
                 )
-                
 
             if self.is_closing:
                 return
@@ -981,9 +991,15 @@ class LavalinkPlayer(wavelink.Player):
                 await self.connect(vc_id)
                 return
 
-        if isinstance(event, wavelink.TrackStuck):
+            if event.code == 4014:
+                await asyncio.sleep(1)
+                if self.guild and self.guild.me.voice:
+                    return
+                self.set_command_log(f"Trình phát đã bị tắt do mất kết nối với kênh {self.last_channel.mention}...")
+                await self.destroy(force=True)
+                return
 
-            await self.bot.wait_until_ready()
+        if isinstance(event, wavelink.TrackStuck):
 
             try:
                 self.message_updater_task.cancel()
@@ -995,15 +1011,12 @@ class LavalinkPlayer(wavelink.Player):
             self.update = False
 
             try:
-                self.set_command_log(text=f"Một bài hát [{fix_characters(self.current.single_title, 25)}]({self.current.uri}) đang được phát", emoji="⚠️")
+                self.set_command_log(text=f"Bài hát [{fix_characters(self.current.single_title, 25)}]({self.current.uri}) bị lỗi.", emoji="⚠️")
             except:
                 pass
 
             await self.process_next()
 
-            return
-
-        elif isinstance(event, wavelink.WebsocketClosed):
             return
 
         print(f"Unknown Wavelink event: {repr(event)}")
@@ -1327,7 +1340,7 @@ class LavalinkPlayer(wavelink.Player):
 
                 if not tracks:
                     if track_data.info["sourceName"] == "youtube":
-                        query = f"https://music.youtube.com/watch?v={track_data.ytid}&list=RD{track_data.ytid}"
+                        query = f"https://www.youtube.com/watch?v={track_data.ytid}&list=RD{track_data.ytid}"
                     else:
                         query = f"ytmsearch:{track_data.author}"
 
