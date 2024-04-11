@@ -516,6 +516,7 @@ class LavalinkPlayer(wavelink.Player):
         self.check_skins()
         self.setup_features()
         self.setup_hints()
+        self.native_yt: bool = True
 
         self.bot.dispatch("player_create", player=self)
 
@@ -768,7 +769,7 @@ class LavalinkPlayer(wavelink.Player):
                 await send_report()
 
                 if video_not_available:
-                    self.node.native_yt = False
+                    self.native_yt = False
                     self.current = None
                     self.queue.appendleft(track)
                     self.locked = False
@@ -1475,10 +1476,10 @@ class LavalinkPlayer(wavelink.Player):
         except:
             pass
 
-        if len(self.queue):
+        try:
             track = self.queue.popleft()
 
-        else:
+        except:
 
             try:
 
@@ -1514,6 +1515,8 @@ class LavalinkPlayer(wavelink.Player):
 
         self.locked = True
 
+        temp_id = None
+
         if isinstance(track, PartialTrack):
 
             if not track.id:
@@ -1523,7 +1526,7 @@ class LavalinkPlayer(wavelink.Player):
                     try:
                         await self.text_channel.send(
                             embed=disnake.Embed(
-                                description=f"Có một vấn đề khi cố gắng xử lý bài hát [{track.title}]({track.uri})... "
+                                description=f"Đã xảy ra sự cố khi xử lý bài hát [{track.title}]({track.uri})... "
                                             f"```py\n{repr(e)}```",
                                 color=self.bot.get_color()
                             )
@@ -1536,24 +1539,79 @@ class LavalinkPlayer(wavelink.Player):
                     await self.process_next()
                     return
 
-            if not track.id:
-                try:
-                    await self.text_channel.send(
-                        embed=disnake.Embed(
-                            description=f"Bài hát [{track.title}]({track.uri}) không có sẵn...\n"
-                                         f"Chuyển sang bài hát tiếp theo...",
-                            color=self.bot.get_color()
-                        ), delete_after=10
-                    )
-                except:
-                    traceback.print_exc()
+                if not track.id:
+                    try:
+                        await self.text_channel.send(
+                            embed=disnake.Embed(
+                                description=f"Bài hát [{track.title}]({track.uri}) không có sẵn...\n"
+                                            f"Chuyển sang bài hát tiếp theo...",
+                                color=self.bot.get_color()
+                            ), delete_after=10
+                        )
+                    except:
+                        traceback.print_exc()
 
-                await asyncio.sleep(10)
+                    await asyncio.sleep(10)
 
-                self.locked = False
+                    self.locked = False
 
+                    await self.process_next()
+                    return
+
+        if not self.native_yt and (track.info["sourceName"] == "youtube" or track.info.get("sourceNameOrig") == "youtube"):
+
+            if track.is_stream or track.duration > 600000:
+                self.failed_tracks.append(track)
                 await self.process_next()
                 return
+
+            temp_id = track.info.get("temp_id")
+
+            if not temp_id:
+
+                tracks = []
+
+                exceptions = ""
+
+                for provider in self.node.search_providers:
+                    if provider in ("ytsearch", "ytmsearch"):
+                        continue
+                    try:
+                        tracks = await self.node.get_tracks(f"{provider}:{track.title}")
+                    except:
+                        exceptions += f"{traceback.format_exc()}\n"
+                        await asyncio.sleep(1)
+                        continue
+
+                try:
+                    tracks = tracks.tracks
+                except AttributeError:
+                    pass
+
+                if not [i in track.title.lower() for i in exclude_tags]:
+                    final_result = []
+                    for t in tracks:
+                        if not any((i in t.title.lower()) for i in exclude_tags):
+                            final_result.append(t)
+                            break
+                    tracks = final_result or tracks
+
+                if not tracks:
+                    if exceptions:
+                        print(exceptions)
+                    self.failed_tracks.append(track)
+                    self.current = track
+                    self.set_command_log(emoji="⚠️", text="Bài hát hiện tại sẽ bị bỏ qua do không có kết quả "
+                                                          "trong chế độ tìm kiếm thay thế của YouTube.")
+                    await self.invoke_np()
+                    await asyncio.sleep(13)
+                    self.locked = False
+                    await self.process_next()
+                    return
+
+                temp_id = tracks[0].id
+
+                track.info["temp_id"] = temp_id
 
         elif not track.id:
 
@@ -1566,16 +1624,22 @@ class LavalinkPlayer(wavelink.Player):
                 t = await self.node.get_tracks(query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
             except Exception as e:
                 traceback.print_exc()
+                if "Video returned by YouTube isn't what was requested" in str(e):
+                    self._new_node_task = self.bot.loop.create_task(self._wait_for_new_node(ignore_node=self.node.identifier))
+                    return
+                kwargs = {}
+                if self.purge_mode == SongRequestPurgeMode.on_message:
+                    kwargs["delete_after"] = 11
                 try:
                     await self.text_channel.send(
                         embed=disnake.Embed(
-                            description=f"**Đã xảy ra lỗi khi lấy được thông tin của bài hát:** [{track.title}]({track.uri}) "
-                        )
-                    )
+                            description=f"**Đã có lỗi xảy ra khi cố gắng tìm bài hát:** [{track.title}]({track.uri}) ```py\n{repr(e)}```"
+                        ),
+                    **kwargs)
                 except:
                     pass
                 embed = disnake.Embed(
-                    description=f"**Không có được thông tin một phần:\n[{track.title}]({track.uri or track.search_uri})**\n"
+                    description=f"**Thất bại trog khi lấy thông tin PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
                                 f"**Máy chủ âm nhạc:** `{self.node.identifier}`",
                     color=disnake.Colour.red())
                 await self.report_error(embed, track)
@@ -1594,7 +1658,7 @@ class LavalinkPlayer(wavelink.Player):
                     await self.text_channel.send(
                         embed=disnake.Embed(
                             description=f"Bài hát [{track.title}]({track.uri}) không có sẵn...\n"
-                                         f"Chuyển sang bài hát tiếp theo...",
+                                        "Chuyển sang bài hát tiếp theo...",
                             color=self.bot.get_color()
                         ), delete_after=10
                     )
@@ -1632,9 +1696,10 @@ class LavalinkPlayer(wavelink.Player):
 
         if self.auto_pause:
             self.last_update = time() * 1000
+            self.current = track
         else:
-            await self.play(track, start=start_position)
-            # TODO: rever essa parte caso adicione função de ativar track loops em músicas da fila
+            await self.play(track, start=start_position, temp_id=temp_id)
+
             if self.loop != "current" or force_np or (not self.controller_mode and self.current.track_loops == 0):
 
                 if start_position:
@@ -2581,6 +2646,8 @@ class LavalinkPlayer(wavelink.Player):
                 continue
 
             node = nodes[0]
+
+            self.native_yt = True           
 
             try:
                 await self.change_node(node.identifier)

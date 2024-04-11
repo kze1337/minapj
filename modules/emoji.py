@@ -213,7 +213,7 @@ class emoji(commands.Cog):
                 await ctx.edit_original_response(embed=embed)
         except Exception as e:
             if "Missing Permissions" in str(e):
-                await ctx.edit_original_response("Tớ thiếu quyền, hãy đảm bảo bạn đã bật 2 quyền sau trong role của tớ :< \n https://cdn.discordapp.com/attachments/1159485783800025230/1203882561940627476/image.png?ex=65d2b601&is=65c04101&hm=94f294ba1360bc97a6124e1e96c40f77c81b57050d1d99cb4185055f9f4b792e&")
+                await ctx.edit_original_response("Tớ thiếu quyền, hãy đảm bảo bạn đã bật 2 quyền sau trong role của tớ :< \n https://i.ibb.co/BNY7NHk/image.png")
                 return
 
             if "Maximum number of emojis reached" in str(e):

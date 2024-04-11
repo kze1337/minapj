@@ -5,6 +5,31 @@ from typing import Union
 from utils.others import CustomContext
 from utils.client import BotCore
 
+def convert_tm(x: str) -> int:
+    _input = x.lower().strip()
+    valid = False
+    _time = [0, 0, 0] # [hours, minutes, seconds]
+    buffer = ""
+    for i in _input:
+        if i.isnumeric():
+            valid = True
+            buffer += i
+        elif i.isalpha():
+            if not buffer.isnumeric(): continue
+            if i in ["h"]:  _time[0] = int(buffer)
+            elif i in ["m", "p"]: _time[1] = int(buffer)
+            elif i in ["s"]: _time[2] = int(buffer)
+            buffer = ""
+    if buffer.isnumeric(): _time[2] = int(buffer)
+    um = _time[0] * 3600 + _time[1] * 60 + _time[2]
+    return {
+        "valid": True, 
+        "tm": um
+    } if valid else {
+        "valid": False,
+        "tm": None
+    }
+
 class Moderator(commands.Cog):
     def __init__(self, bot):
         self.bot: BotCore = bot
@@ -19,21 +44,26 @@ class Moderator(commands.Cog):
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
     async def ban(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
+        if ctx.author.bot:
+            return
         if member == ctx.author:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự cấm mình", color=disnake.Color.red()))
             return
-        if member == ctx.guild.owner:
+        elif ctx.author.id == ctx.guild.owner.id:
+            pass
+        elif member == ctx.guild.owner:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể cấm chủ server", color=disnake.Color.red()))
             return
-        if member.top_role >= ctx.author.top_role:
+        elif member.top_role >= ctx.author.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể cấm người này", color=disnake.Color.red()))
             return
-        if member.top_role >= ctx.guild.me.top_role:
+        elif member.top_role >= ctx.guild.me.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Tôi không thể cấm người này", color=disnake.Color.red()))
             return
+
         if reason is None:
             reason = "Không có lý do"
-        await member.send(embed=disnake.Embed(title=f"<:LogoModSystem:1155781711024635934> Bạn đã bị cấm khỏi server {ctx.guild.name} với lý do: {reason}", color=disnake.Color.red()))
+
         await member.ban(reason=reason)
         await ctx.send(embed=disnake.Embed(title=f"<:LogoModSystem:1155781711024635934> Đã cấm {member} khỏi server", color=disnake.Color.green()))
 
@@ -43,6 +73,8 @@ class Moderator(commands.Cog):
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
     async def unban(self, ctx: CustomContext, member: disnake.User, *, reason: str = None):
+        if ctx.author.bot:
+            return
         if reason is None:
             reason = "Không có lý do"
         await ctx.guild.unban(member, reason=reason)
@@ -54,16 +86,20 @@ class Moderator(commands.Cog):
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
     async def kick(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
+        if ctx.author.bot:
+            return
         if member == ctx.author:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự hực hiện việc này lên bản thân mình", color=disnake.Color.red()))
             return
-        if member == ctx.guild.owner:
+        elif ctx.author.id == ctx.guild.owner_id:
+            pass
+        elif member == ctx.guild.owner:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể hực hiện việc này lên chủ server", color=disnake.Color.red()))
             return
-        if member.top_role >= ctx.author.top_role:
+        elif member.top_role >= ctx.author.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
             return
-        if member.top_role >= ctx.guild.me.top_role:
+        elif member.top_role >= ctx.guild.me.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Tôi không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
             return
         if reason is None:
@@ -71,76 +107,60 @@ class Moderator(commands.Cog):
         await member.kick(reason=reason)
         await ctx.send(embed=disnake.Embed(title=f"<:LogoModSystem:1155781711024635934> Đã đá {member} khỏi server", color=disnake.Color.green()))
 
-    @commands.command(name="mute", description="Cấm người dùng nói chuyện trong server")
-    @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_roles=True)
+    @commands.command(name="mute", description="Cấm người dùng nói chuyện trong server trong một khoảng thời gian nhất định")
+    @commands.has_permissions(moderate_members=True)
+    @commands.bot_has_permissions(moderate_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    async def mute(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
+    async def mute(self, ctx: CustomContext, member: disnake.Member, time: str, *, reason: str = None):
+        if ctx.author.bot:
+            return
         if member == ctx.author:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự hực hiện việc này lên bản thân mình", color=disnake.Color.red()))
             return
-        if member == ctx.guild.owner:
+        elif ctx.author.id == ctx.guild.owner_id:
+            pass
+        elif member == ctx.guild.owner:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể hực hiện việc này lên chủ server", color=disnake.Color.red()))
             return
-        if member.top_role >= ctx.author.top_role:
+        elif member.top_role >= ctx.author.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
             return
-        if member.top_role >= ctx.guild.me.top_role:
+        elif member.top_role >= ctx.guild.me.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Tôi không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
             return
+        
         if reason is None:
             reason = "Không có lý do"
-        await member.add_roles(ctx.guild.get_role(882298634149703454), reason=reason)
-        await ctx.send(embed=disnake.Embed(title=f"<:timeout:1155781760571949118> Đã cấm {member} nói chuyện trong server", color=disnake.Color.green()))
-
-    @commands.command(name="unmute", description="Bỏ cấm người dùng nói chuyện trong server")
-    @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    @commands.guild_only()
-    @commands.cooldown(1, 5, commands.BucketType.guild)
-    async def unmute(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
-        if member == ctx.author:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự hực hiện việc này lên bản thân mình", color=disnake.Color.red()))
+        
+        tm = convert_tm(time)
+        if tm["valid"] == False:
             return
-        if member == ctx.guild.owner:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể hực hiện việc này lên chủ server", color=disnake.Color.red()))
+        try:
+            await member.timeout(duration=tm["tm"], reason=reason)
+            await ctx.send(embed=disnake.Embed(title=f"<:timeout:1155781760571949118> Đã cấm {member} nói chuyện trong server trong {time}", color=disnake.Color.green()))
+        except Exception as e:
+            if "Missing Permissions" in str(e):
+                await ctx.send("Tui chưa có quyền để thực hiện lệnh này, hãy đảm bảo đã thêm đủ quyền \n https://i.ibb.co/bsqLmRR/image.png")
+                return
             return
-        if member.top_role >= ctx.author.top_role:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
-            return
-        if member.top_role >= ctx.guild.me.top_role:
-            await ctx.send(embed=disnake.Embed(title="❌ Tôi không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
-            return
-        if reason is None:
-            reason = "Không có lý do"
-        await member.remove_roles(ctx.guild.get_role(882298634149703454), reason=reason)
-        await ctx.send(embed=disnake.Embed(title=f"<:timeout:1155781760571949118> Đã bỏ cấm {member} nói chuyện trong server", color=disnake.Color.green()))
-
-    @commands.command(name="timeout", description="Cấm người dùng nói chuyện trong server trong một khoảng thời gian nhất định")
-    @commands.has_permissions(mute_members=True)
-    @commands.bot_has_permissions(mute_members=True)
-    @commands.guild_only()
-    @commands.cooldown(1, 5, commands.BucketType.guild)
-    async def timeout(self, ctx: CustomContext, member: disnake.Member, time: int, *, reason: str = None):
-        if member == ctx.author:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự hực hiện việc này lên bản thân mình", color=disnake.Color.red()))
-            return
-        if member == ctx.guild.owner:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể hực hiện việc này lên chủ server", color=disnake.Color.red()))
-            return
-        if member.top_role >= ctx.author.top_role:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
-            return
-        if member.top_role >= ctx.guild.me.top_role:
-            await ctx.send(embed=disnake.Embed(title="❌ Tôi không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
-            return
-        if reason is None:
-            reason = "Không có lý do"
-        await member.timeout(duration=time, reason=reason)
-        await ctx.send(embed=disnake.Embed(title=f"<:timeout:1155781760571949118> Đã cấm {member} nói chuyện trong server trong {time} giây", color=disnake.Color.green()))
-
     
+    @commands.command(name="unmute", description="Bỏ cấm chat cho người dùng")
+    @commands.has_permissions(moderate_members=True)
+    async def unmute(self, ctx: CustomContext, member: disnake.Member = None):
+        if member is None: return
+        if member.current_timeout is None:
+            await ctx.send(f"Người dùng {member.mention} không bị hạn chế")
+            return
+        try: 
+            member.timeout(duration=0, reason=f"Unmute by {ctx.author.name}")
+        except Exception as e:
+            if "Missing Permissions" in str(e):
+                await ctx.send("Tui chưa có quyền để thực hiện lệnh này, hãy đảm bảo đã thêm đủ quyền \n https://i.ibb.co/bsqLmRR/image.png")
+                return
+           
+            return            
+
     @commands.command(name="purge", description="Xóa tin nhắn trong kênh")
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
@@ -156,6 +176,8 @@ class Moderator(commands.Cog):
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     async def purge(self, ctx: disnake.AppCommandInteraction, amount: int):
+        if ctx.author.bot:
+            return
         
         await ctx.response.defer(ephemeral=True)
         if amount > 100:
@@ -172,9 +194,11 @@ class Moderator(commands.Cog):
     @commands.bot_has_permissions(manage_channels=True)
     @commands.cooldown(1, 86400, commands.BucketType.guild)
     async def nuke(self, ctx: CustomContext):
+        if ctx.author.bot:
+            return
         channel = await ctx.channel.clone()
         await ctx.channel.delete(reason="Nuke")
-        await channel.send(f"<:ll:1138141608924172339> Nuked by `{ctx.author.name}`, at `{datetime.datetime.utcnow()}`")
+        await channel.send(f"<:ll:1138141608924172339> Nuked by `{ctx.author.name}`, at `{datetime.datetime.now('%X')}`")
 
 
 def setup(bot):

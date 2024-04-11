@@ -52,8 +52,8 @@ class Music(commands.Cog):
     ]
 
     playlist_opts = [
-        disnake.OptionChoice("Misturar Playlist", "shuffle"),
-        disnake.OptionChoice("Inverter Playlist", "reversed"),
+        disnake.OptionChoice("Trộn danh sách phát", "shuffle"),
+        disnake.OptionChoice("Đảo ngược danh sách phát", "reversed"),
     ]
 
     sources = {
@@ -4055,6 +4055,7 @@ class Music(commands.Cog):
             raise GenericError(f"Người chơi đã ở trên máy chủ âm nhạc **{node}**.")
 
         await player.change_node(node)
+        player.native_yt = True
 
         await self.interaction_message(
             inter,
