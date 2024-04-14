@@ -46,6 +46,10 @@ class Moderator(commands.Cog):
     async def ban(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
         if ctx.author.bot:
             return
+        
+        if member == ctx.guild.me:
+            return
+        
         if member == ctx.author:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự cấm mình", color=disnake.Color.red()))
             return
@@ -60,6 +64,7 @@ class Moderator(commands.Cog):
         elif member.top_role >= ctx.guild.me.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Tôi không thể cấm người này", color=disnake.Color.red()))
             return
+
 
         if reason is None:
             reason = "Không có lý do"
@@ -88,9 +93,13 @@ class Moderator(commands.Cog):
     async def kick(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
         if ctx.author.bot:
             return
-        if member == ctx.author:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự hực hiện việc này lên bản thân mình", color=disnake.Color.red()))
+        if member == ctx.guild.me:
             return
+        
+        if member == ctx.author:
+            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự thực hiện việc này lên bản thân mình", color=disnake.Color.red()))
+            return
+        
         elif ctx.author.id == ctx.guild.owner_id:
             pass
         elif member == ctx.guild.owner:
@@ -102,6 +111,7 @@ class Moderator(commands.Cog):
         elif member.top_role >= ctx.guild.me.top_role:
             await ctx.send(embed=disnake.Embed(title="❌ Tôi không thể thực hiện việc này lên thành viên này", color=disnake.Color.red()))
             return
+        
         if reason is None:
             reason = "Không có lý do"
         await member.kick(reason=reason)
@@ -115,11 +125,16 @@ class Moderator(commands.Cog):
     async def mute(self, ctx: CustomContext, member: disnake.Member, time: str, *, reason: str = None):
         if ctx.author.bot:
             return
-        if member == ctx.author:
-            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự hực hiện việc này lên bản thân mình", color=disnake.Color.red()))
+        if member == ctx.guild.me:
             return
+        
+        if member == ctx.author:
+            await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể tự thực hiện việc này lên bản thân mình", color=disnake.Color.red()))
+            return
+        
         elif ctx.author.id == ctx.guild.owner_id:
             pass
+
         elif member == ctx.guild.owner:
             await ctx.send(embed=disnake.Embed(title="❌ Bạn không thể hực hiện việc này lên chủ server", color=disnake.Color.red()))
             return
@@ -142,6 +157,7 @@ class Moderator(commands.Cog):
         except Exception as e:
             if "Missing Permissions" in str(e):
                 await ctx.send("Tui chưa có quyền để thực hiện lệnh này, hãy đảm bảo đã thêm đủ quyền \n https://i.ibb.co/bsqLmRR/image.png")
+                print(repr(e))
                 return
             return
     
@@ -158,7 +174,6 @@ class Moderator(commands.Cog):
             if "Missing Permissions" in str(e):
                 await ctx.send("Tui chưa có quyền để thực hiện lệnh này, hãy đảm bảo đã thêm đủ quyền \n https://i.ibb.co/bsqLmRR/image.png")
                 return
-           
             return            
 
     @commands.command(name="purge", description="Xóa tin nhắn trong kênh")
@@ -198,7 +213,7 @@ class Moderator(commands.Cog):
             return
         channel = await ctx.channel.clone()
         await ctx.channel.delete(reason="Nuke")
-        await channel.send(f"<:ll:1138141608924172339> Nuked by `{ctx.author.name}`, at `{datetime.datetime.now('%X')}`")
+        await channel.send(f"<:ll:1138141608924172339> Nuked by `{ctx.author.name}`")
 
 
 def setup(bot):
