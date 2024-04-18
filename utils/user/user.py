@@ -68,6 +68,28 @@ class database_handler():
             "time": data["time"],
             "ban_reason": data["ban_reason"]
         }
+    
+    async def delete_all_user_data(self, uid: int):
+        "Xóa toàn bộ dữ liệu của người dùng"
+        data = await s2a(self.users.find_one)({"uid": uid})
+        if data is None:
+            return {
+                "status": "notfound"
+            }
+        else:
+            try:
+                await self.signature(uid, "")
+                await self.transaction(uid, -data["coin"], -data["money"], "Thực hiện xóa dữ liệu")
+                await s2a(self.users.delete_one)({"uid": uid})
+                return {
+                    "status": "done"
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "msg": e
+                }
+            
 
     async def get_userinfo(self, uid: int):
         "Lấy thông tin người dùng từ cơ sở dữ liệu"

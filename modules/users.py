@@ -13,13 +13,13 @@ success_icon = "https://cdn.discordapp.com/attachments/1117362735911538768/11311
 fail_icon = "https://media.discordapp.net/attachments/1158024306006171722/1172548248712519690/New_Project_12_1F9D8FE.gif?ex=6560b7a7&is=654e42a7&hm=3e1ad259424752013faa667b7fd45f93dece5975d3eccdf4ba773f498fc02963&"
 
 platform_icon = {
-    "facebook": "<:facebook:1143599307023454208>",
+    "facebook": "<:facebook:1230516619248275526>",
     "tiktok": "<:Tiktok:1139078822453596170>",
     "github": "<:github_team:1103351450299543584>",
     "discord": "<:Discord:1155781686349545489>",
     "telegram": "☎️",
     "website": "<:chromium:1185186730781982772>",
-    "youtube": "<:YouTube:1090095507684212817>",
+    "youtube": "<:YouTube:1230516665599660164>",
 }
 
 def gen_banned_embed(time, reason):
@@ -43,6 +43,19 @@ notfound_embed.set_thumbnail(url=fail_icon)
 class Users(commands.Cog):
     def __init__(self, bot):
         self.bot: BotCore = bot
+
+    @commands.slash_command(name="delete_your_data", description=f"{desc_prefix} Xóa toàn bộ thông tin của bạn của bot này")
+    async def del_data(self, ctx: disnake.ApplicationCommandInteraction):
+        await ctx.response.defer(ephemeral=True)
+        userinfo = await self.bot.db_handler.get_userinfo(ctx.author.id)
+        if userinfo["status"] == "notfound":
+            await ctx.edit_original_response("Bạn không có dữ liệu người dùng nào được lưu trữ trong dịch vụ này!!")
+        else:
+            stat =  await self.bot.db_handler.delete_all_user_data(ctx.author.id)
+            if stat["status"] == "error":
+                await ctx.edit_original_response(f"Đã xảy ra lỗi {stat['msg']}")
+            else:
+                await ctx.edit_original_response("Tất cả dữ liệu đã được xóa, cảm ơn vì đã dùng dịch vụ của chúng tớ!")
     
     @commands.slash_command(name="profile",
                             description=f"{desc_prefix} Xem thông tin người dùng",
