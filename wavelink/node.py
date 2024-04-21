@@ -146,7 +146,7 @@ class Node:
         return {
             "Authorization": self.password,
             "User-Id": str(self.uid),
-            "Client-Name": f"Wavelink/custom",
+            "Client-Name": "Wavelink/custom",
         }
 
     async def connect(self, *args, **kwargs) -> None:
@@ -166,7 +166,7 @@ class Node:
                                         **kwargs,
                                         )
 
-        await self._websocket._connect()
+        await self._websocket._connect(**kwargs)
 
         __log__.info(f'NODE | {self.identifier} connected:: {self.__repr__()}')
 
@@ -297,11 +297,11 @@ class Node:
                     except KeyError:
                         pass
                     playlist_cls = kwargs.pop('playlist_cls', TrackPlaylist)
-                    return playlist_cls(data=data, url=query, encoded_name=encoded_name, **kwargs)
+                    return playlist_cls(data=data, url=query, encoded_name=encoded_name, pluginInfo=data.pop("pluginInfo", {}), **kwargs)
 
                 track_cls = kwargs.pop('track_cls', Track)
 
-                tracks = [track_cls(id_=track[encoded_name], info=track['info'], **kwargs) for track in tracks]
+                tracks = [track_cls(id_=track[encoded_name], info=track['info'], pluginInfo=track.get("pluginInfo", {}), **kwargs) for track in tracks]
 
                 return tracks
 

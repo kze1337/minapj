@@ -31,7 +31,7 @@ from utils.others import music_source_emoji, send_idle_embed, PlayerControls, So
 if TYPE_CHECKING:
     from utils.client import BotCore
 
-exclude_tags = ["remix", "edit", "extend"]
+exclude_tags = ["remix", "edit", "extend", "compilation", "mashup"]
 
 thread_archive_time = {
     60: 30,
