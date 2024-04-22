@@ -190,3 +190,9 @@ plugins/lavasrc-plugin-4.0.1.jar
 modules/minigame.py
 botData/json/cardemojis.json
 data_tts/
+.logs
+.tempjar
+.vscode
+local_database
+plugins
+.idea
