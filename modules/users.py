@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import disnake
+
+
 from disnake.ext import commands
 from disnake import OptionType, OptionChoice
 from utils.client import BotCore
@@ -47,15 +51,16 @@ class Users(commands.Cog):
     @commands.slash_command(name="delete_your_data", description=f"{desc_prefix} Xóa toàn bộ thông tin của bạn của bot này")
     async def del_data(self, ctx: disnake.ApplicationCommandInteraction):
         await ctx.response.defer(ephemeral=True)
-        userinfo = await self.bot.db_handler.get_userinfo(ctx.author.id)
+        userinfo =  await self.bot.db_handler.get_userinfo(ctx.author.id)
         if userinfo["status"] == "notfound":
             await ctx.edit_original_response("Bạn không có dữ liệu người dùng nào được lưu trữ trong dịch vụ này!!")
         else:
-            stat =  await self.bot.db_handler.delete_all_user_data(ctx.author.id)
-            if stat["status"] == "error":
-                await ctx.edit_original_response(f"Đã xảy ra lỗi {stat['msg']}")
-            else:
-                await ctx.edit_original_response("Tất cả dữ liệu đã được xóa, cảm ơn vì đã dùng dịch vụ của chúng tớ!")
+            embed = disnake.Embed(title="Xóa dữ liệu", description="Bạn có chắc chắn là sẽ xóa dữ liệu không?\n Hành động này sẽ không thể hoàn tác!")
+            view = disnake.ui.View()
+            view.add_item(disnake.ui.Button(label="Xóa", custom_id="user_delete_confirm_btn")) 
+            view.add_item(disnake.ui.Button(label="Khong", custom_id="user_delete_no_btn"))
+            await ctx.edit_original_response(embed=embed, view=view)
+        
     
     @commands.slash_command(name="profile",
                             description=f"{desc_prefix} Xem thông tin người dùng",
@@ -391,11 +396,13 @@ class Users(commands.Cog):
     async def on_button_click(self, inter: disnake.MessageInteraction):
         if inter.author.bot:
             pass
+        await inter.response.defer(ephemeral=True)
+
+        uid = inter.author.id
+        userinfo = await self.bot.db_handler.get_userinfo(uid)
         button_id = inter.component.custom_id
         if button_id.startswith("buy_premium_"):
 
-            uid = inter.author.id
-            userinfo = await self.bot.db_handler.get_userinfo(uid)
             if userinfo["status"] == "banned":
                 await inter.send(embed=gen_banned_embed(userinfo["time"], userinfo["ban_reason"]), ephemeral=True)
                 return
@@ -453,6 +460,16 @@ class Users(commands.Cog):
                 )
                 embed.set_thumbnail(url=fail_icon)
                 await inter.response.send_message(embed=embed, ephemeral=True)
+
+        elif button_id.startswith("user_delete"):
+            if button_id == "user_delete_confirm_btn":
+                    stat =  await self.bot.db_handler.delete_all_user_data(inter.author.id)
+                    if stat["status"] == "error":
+                        await inter.edit_original_response(f"Đã xảy ra lỗi {stat['msg']}", view=None, embed=None)
+                    else:
+                        await inter.edit_original_response("Tất cả dữ liệu đã được xóa, cảm ơn vì đã dùng dịch vụ của chúng tớ!", view=None, embed=None)
+            else: 
+                await inter.edit_original_response("Đã hủy tương tác", view=None, embed=None)
 
 #################################################################
 ################ Owner stuffs ###################################
