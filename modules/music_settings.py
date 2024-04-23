@@ -453,7 +453,7 @@ class MusicSettings(commands.Cog):
         if isinstance(target, disnake.ForumChannel) and not isinstance(inter, CustomContext):
 
             await inter.response.send_modal(
-                title="Chọn một tên cho bài đăng (tối đa 30giây.)",
+                title="Chọn một tên cho bài đăng (tối đa 30 chữ.)",
                 custom_id=str(inter.id),
                 components=[
                     disnake.ui.TextInput(
@@ -604,7 +604,7 @@ class MusicSettings(commands.Cog):
                 disnake.Embed(
                     description="**Chọn một kênh " + ("Hoặc nhấp vào một trong các nút bên dưới để tạo một kênh mới để yêu cầu bài hát." if guild.me.guild_permissions.manage_channels else "dưới:") +'**' ,
                     color=color
-                ).set_footer(text="Bạn chỉ có 45 giây để chọn/nhấp vào một tùy chọn.")
+                ).set_footer(text="Bạn chỉ có 45 giây để chọn một tùy chọn.")
             ]
 
             if not guild.me.guild_permissions.manage_channels:
