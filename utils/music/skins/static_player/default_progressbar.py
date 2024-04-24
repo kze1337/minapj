@@ -20,7 +20,7 @@ class DefaultProgressbarStaticSkin:
     def setup_features(self, player: LavalinkPlayer):
         player.mini_queue_feature = False
         player.controller_mode = True
-        player.auto_update = 15
+        player.auto_update = 2
         player.hint_rate = player.bot.config["HINT_RATE"]
         player.static = True
 
