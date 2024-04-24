@@ -67,7 +67,7 @@ class DefaultProgressbarStaticSkin:
 
         vc_txt = ""
 
-        txt = f"[`{player.current.single_title}`]({player.current.uri})\n\n" \
+        txt = f"[`{fix_characters(player.current.single_title, limit=21)}`]({player.current.uri})\n\n" \
               f"{duration1}\n" \
               f"> <:author:1140220381320466452>  **⠂Tác giả:** {player.current.authors_md}\n" \
               f"> <:peppe_he:1161843804547072010> **⠂Người gọi bài:** <@{player.current.requester}>\n" \
@@ -150,7 +150,6 @@ class DefaultProgressbarStaticSkin:
             embed_queue.set_image(url="https://media.discordapp.net/attachments/779998700981321749/865589761858600980/ayakapfpBanner2.gif")
 
         embed.description = txt
-        embed.set_image(url="https://media.discordapp.net/attachments/779998700981321749/865589761858600980/ayakapfpBanner2.gif")
         embed.set_thumbnail(url=player.current.thumb)
         embed.set_footer(
             text="Kadin Music system",

@@ -81,7 +81,7 @@ class DefaultStaticSkin:
              s_name = "Không biết"
              src_emoji = "<:LogoModSystem:1155781711024635934>"
 
-        txt = f"[`{player.current.single_title}`]({player.current.uri})\n\n" \
+        txt = f"[`{fix_characters(player.current.single_title, limit=21)}`]({player.current.uri})\n\n" \
               f"{duration1}" \
               f"> {src_emoji} **⠂Nguồn:** [`{s_name}`]({player.current.uri})\n" \
               f"> <:author:1140220381320466452>  **⠂Tác giả:** {player.current.authors_md}\n" \
@@ -180,7 +180,6 @@ class DefaultStaticSkin:
             embed_queue.set_image(url="https://i.ibb.co/wKwpJZQ/ayakapfp-Banner2.gif")
 
         embed.description = txt
-        embed.set_image(url=player.current.thumb if player.is_paused == False else "https://i.ibb.co/wKwpJZQ/ayakapfp-Banner2.gif")
         embed.set_thumbnail(url=player.current.thumb)
         embed.set_footer(
             text=f"Chisadin music system || {time_format(player.position)} / {time_format(player.current.duration)}" if not player.paused else f"Chisadin music system || Tạm dừng",
