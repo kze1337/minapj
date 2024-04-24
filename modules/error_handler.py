@@ -86,14 +86,14 @@ class ErrorHandler(commands.Cog):
 
             if self.bot.config["AUTO_ERROR_REPORT_WEBHOOK"]:
                 send_webhook = True
-                kwargs["embeds"].description += " `Nhà phát triển của tôi sẽ nhận được thông báo về vấn đề.`"
+                kwargs["embed"].description += " `Nhà phát triển của tôi sẽ nhận được thông báo về vấn đề.`"
 
         else:
 
-            kwargs["embeds"] = []
+            kwargs["embed"] = []
 
             for p in paginator(error_msg):
-                kwargs["embeds"].append(disnake.Embed(color=color, description=p))
+                kwargs["embed"].append(disnake.Embed(color=color, description=p))
 
         try:
             await send_message(inter, components=components, **kwargs)
