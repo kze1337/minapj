@@ -69,7 +69,7 @@ class DefaultProgressbarSkin:
         elif src_name == "twitch":
              s_name = "Twitch"
              src_emoji = "<:Twitch:1197427999981703238>"
-        elif src_name == "appemusic":
+        elif src_name == "applemusic":
              s_name = "Apple Music"
              src_emoji = "<:applemusic:1232560350449242123>"
         else:
