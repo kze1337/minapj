@@ -1,4 +1,4 @@
-disnake>=2.9.1
+git+https://github.com/DisnakeDev/disnake.git@2919c6177aee6bb33ce61260e7213fe0ec6769e9
 disnake[voice]
 python-ffmpeg
 python-dotenv
@@ -7,7 +7,7 @@ requests>=2.31.0
 humanize
 motor[srv]
 tinymongo
-dnspython==2.4.0
+dnspython>=2.6.1
 psutil
 aiofiles
 disnake-jishaku
