@@ -9,7 +9,7 @@ import traceback
 import zlib
 from base64 import b64decode
 from copy import deepcopy
-from random import shuffle, choice
+from random import shuffle
 from typing import Union, Optional
 from urllib.parse import urlparse, parse_qs
 
@@ -35,7 +35,7 @@ from utils.music.interactions import VolumeInteraction, QueueInteraction, Select
 from utils.music.models import LavalinkPlayer, LavalinkTrack, LavalinkPlaylist, PartialTrack
 from utils.music.spotify import process_spotify, spotify_regex_w_user
 from utils.others import check_cmd, send_idle_embed, CustomContext, PlayerControls, queue_track_index, \
-    pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, song_request_buttons, \
+    pool_command, string_to_file, CommandArgparse, music_source_emoji_url, SongRequestPurgeMode, \
     select_bot_pool, get_inter_guild_data, ProgressBar
 
 
@@ -880,8 +880,8 @@ class Music(commands.Cog):
                 text = "### Đã hết thời gian để chọn!" if view.selected is not False else "### Bị người dùng hủy."
 
                 try:
-                    await msg.edit(embed=disnake.Embed(description=text, color=self.bot.get_color(guild.me)),
-                                   components=song_request_buttons)
+                    await msg.edit(embed=disnake.Embed(description=text, color=self.bot.get_color(guild.me))
+                                   )
                 except AttributeError:
                     traceback.print_exc()
                     pass
@@ -1013,10 +1013,10 @@ class Music(commands.Cog):
                     embed = disnake.Embed(description="### Lựa chọn đã hết thời gian!" if view.selected is not False else "### Bị người dùng hủy.", color=self.bot.get_color(guild.me))
 
                     try:
-                        await msg.edit(embed=embed, components=song_request_buttons)
+                        await msg.edit(embed=embed)
                     except AttributeError:
                         try:
-                            await select_interaction.response.edit_message(embed=embed, components=song_request_buttons)
+                            await select_interaction.response.edit_message(embed=embed)
                         except AttributeError:
                             traceback.print_exc()
                     return
@@ -1161,9 +1161,7 @@ class Music(commands.Cog):
                             func = view.inter.response.edit_message
 
                         await func(embed=disnake.Embed(color=self.bot.get_color(guild.me),
-                            description="**Đã hết thời gian!**" if not view.selected is False else "### Bị người dùng hủy bỏ."),
-                            components=song_request_buttons
-                        )
+                            description="**Đã hết thời gian!**" if not view.selected is False else "### Bị người dùng hủy bỏ."))
                         return
 
                     query = info["entries"][int(view.selected[14:])]["url"]
@@ -1275,7 +1273,7 @@ class Music(commands.Cog):
 
                             await func(
                                 content=f"{mention}{'thao tác đã bị hủy' if view.selected is not False else 'đã hết thời gian chờ'}" if view.selected is not False else "Đã bị hủy bởi người dùng.",
-                                embed=None, components=song_request_buttons
+                                embed=None
                             )
                             return
 
@@ -2917,7 +2915,6 @@ class Music(commands.Cog):
 
             await inter.send(
                 embed=embed,
-                components=song_request_buttons if inter.guild else [],
                 ephemeral=player.static and player.text_channel.id == inter.channel_id
             )
             await player.destroy()
@@ -4638,8 +4635,8 @@ class Music(commands.Cog):
 
         if player.stage_title_event and (time_:=int((disnake.utils.utcnow() - player.start_time).total_seconds())) < time_limit and not (await bot.is_owner(inter.author)):
             raise GenericError(
-                f"**Você terá que aguardar {time_format((time_limit - time_) * 1000, use_names=True)} para usar essa função "
-                f"com o anúncio automático do palco ativo...**"
+                f"**Bạn sẽ phải đợi {time_format((time_limit - time_) * 1000, use_names=True)} Để sử dụng chức năng này "
+                f"với giai đoạn hoạt động quảng cáo tự động...**"
             )
 
     async def player_controller(self, interaction: disnake.MessageInteraction, control: str, **kwargs):
@@ -4854,7 +4851,6 @@ class Music(commands.Cog):
                     ephemeral=True)
                 return
 
-            await interaction.response.defer()
 
             user_data = await self.bot.get_global_data(interaction.author.id, db_name=DBModel.users)
 
@@ -5136,8 +5132,6 @@ class Music(commands.Cog):
 
                         select_type = view.selected
                         info = choices[select_type]
-
-                    await interaction.response.defer()
 
                     user_data = await self.bot.get_global_data(interaction.author.id, db_name=DBModel.users)
 
@@ -5426,7 +5420,7 @@ class Music(commands.Cog):
                                     "Cố gắng thêm nhạc bằng cách sử dụng **/play ** hoặc nhấp vào một trong các nút bên dưới:",
                         color=self.bot.get_color(message.guild.me)
                     ),
-                    components=song_request_buttons, delete_after=20
+                     delete_after=20
                 )
                 return
 

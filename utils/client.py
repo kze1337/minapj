@@ -302,9 +302,6 @@ class BotPool:
         intents = disnake.Intents(**{i[:-7].lower(): v for i, v in self.config.items() if i.lower().endswith("_intent")})
         intents.members = True
         intents.guilds = True
-        intents.moderation = True
-        intents.emojis_and_stickers = True
-        intents.voice_states = True
         intents.messages = True
 
         mongo_key = self.config.get("MONGO")

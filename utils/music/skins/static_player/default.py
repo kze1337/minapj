@@ -190,83 +190,8 @@ class DefaultStaticSkin:
         data["embeds"] = [embed_queue, embed] if embed_queue else [embed]
 
         data["components"] = [
-            disnake.ui.Button(emoji="<:ayaka_tea:1122325362702037022> ", custom_id=PlayerControls.stop, style=disnake.ButtonStyle.red),
-            disnake.ui.Button(emoji="⏮️", custom_id=PlayerControls.back, style=disnake.ButtonStyle.green),
-            disnake.ui.Button(emoji="⏯️", custom_id=PlayerControls.pause_resume, style=get_button_style(player.paused)),
-            disnake.ui.Button(emoji="⏭️", custom_id=PlayerControls.skip, style=disnake.ButtonStyle.green),
-            disnake.ui.Button(emoji="<:pnv_cong1:1167732512336920606>", custom_id=PlayerControls.add_song, style=disnake.ButtonStyle.green, label="Thêm nhạc"),
-            disnake.ui.Select(
-                placeholder="Lựa chọn khác:",
-                custom_id="musicplayer_dropdown_inter",
-                min_values=0, max_values=1,
-                options=[
-                    disnake.SelectOption(
-                        label="Thêm bài hát", emoji="<:add_music:588172015760965654>",
-                        value=PlayerControls.add_song,
-                        description="Thêm bài hát vào hàng đợi."
-                    ),
-                    disnake.SelectOption(
-                        label="Thêm bài hát từ yêu thích", emoji="⭐",
-                        value=PlayerControls.enqueue_fav,
-                        description="Thêm bài hát từ yêu thích đã lưu trước đó"
-                    ),
-                    disnake.SelectOption(
-                        label="Chơi lại từ đầu", emoji="⏪",
-                        value=PlayerControls.seek_to_start,
-                        description="Chơi lại từ đầu."
-                    ),
-                    disnake.SelectOption(
-                        label=f"Volume: {player.volume}%", emoji="🔊",
-                        value=PlayerControls.volume,
-                        description="Điều chỉnh âm lượng."
-                    ),
-                    disnake.SelectOption(
-                        label="Trộn bài", emoji="🔀",
-                        value=PlayerControls.shuffle,
-                        description="Trộn các bài hát trong hàng đợi."
-                    ),
-                    disnake.SelectOption(
-                        label="Thêm lại các bài hát", emoji="🎶",
-                        value=PlayerControls.readd,
-                        description="Đưa các bài hát đã phát quay lại hàng đợi."
-                    ),
-                    disnake.SelectOption(
-                        label="Chọn chế độ lặp lại", emoji="🔁",
-                        value=PlayerControls.loop_mode,
-                        description="Kích hoạt / Vô hiệu hóa chế độ lặp lại."
-                    ),
-                    disnake.SelectOption(
-                        label=("Vô hiệu hóa" if player.nightcore else "Kích hoạt") + " chế độ Nightcore", emoji="🇳",
-                        value=PlayerControls.nightcore,
-                        description="Hiệu quả làm tăng tốc độ và giai điệu của âm nhạc."
-                    ),
-                    disnake.SelectOption(
-                        label=("Vô hiệu hóa" if player.autoplay else "Kích hoạt") + " Chế độ autopilot", emoji="🔄",
-                        value=PlayerControls.autoplay,
-                        description="Hệ thống tự động thêm nhạc vào hàng đợi khi hết bài hát."
-                    ),
-                    disnake.SelectOption(
-                        label=("Vô hiệu hóa" if player.restrict_mode else "Kích hoạt") + " chế độ khóa", emoji="🔐",
-                        value=PlayerControls.restrict_mode,
-                        description="Chế độ giúp bạn không bị người khác thêm nhạc vào hàng đợi (Chỉ người gọi bài hoặc Staff)."
-                    ),
-                    disnake.SelectOption(
-                        label=("Vô hiệu hóa" if player.keep_connected else "Kích hoạt") + " chế độ 24/7", emoji="<:247:1140230869643169863>",
-                        value=PlayerControls.keep_connected,
-                        description="Kích hoạt chế độ 24/7."
-                    ),
-                ]
-            ),
         ]
 
-        if not player.static and not player.has_thread:
-            data["components"][5].options.append(
-                disnake.SelectOption(
-                    label="Chủ đề yêu cầu bài hát", emoji="💬",
-                    value=PlayerControls.song_request_thread,
-                    description="Tạo một cuộc trò chuyện chủ đề/tạm thời để đặt hàng nhạc chỉ bằng tên/liên kết."
-                )
-            )
 
         try:
             if isinstance(player.text_channel.parent, disnake.ForumChannel):
