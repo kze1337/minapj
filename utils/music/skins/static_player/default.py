@@ -74,7 +74,11 @@ class DefaultStaticSkin:
         elif src_name == "twitch":
              s_name = "Twitch"
              src_emoji = "<:Twitch:1197427999981703238>"
+        elif src_name == "appemusic":
+             s_name = "Apple Music"
+             src_emoji = "<:applemusic:1232560350449242123>"
         else:
+             s_name = "Không biết"
              src_emoji = "<:LogoModSystem:1155781711024635934>"
 
         txt = f"[`{player.current.single_title}`]({player.current.uri})\n\n" \
