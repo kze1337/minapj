@@ -140,7 +140,7 @@ class emoji(commands.Cog):
                 OptionChoice(name="Tắt", value=False)
             ])
             ])
-    async def add_emoji(ctx: disnake.ApplicationCommandInteraction, emoji: str = None, private: bool = False):
+    async def add_emoji(self, ctx: disnake.ApplicationCommandInteraction, emoji: str = None, private: bool = False):
         await ctx.response.defer(ephemeral=private)
         if emoji is None:
             embed = disnake.Embed(
