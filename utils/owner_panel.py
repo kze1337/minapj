@@ -64,7 +64,7 @@ class PanelView(disnake.ui.View):
     async def interaction_check(self, interaction: disnake.MessageInteraction):
 
         if not (await self.bot.is_owner(interaction.user)):
-            await interaction.send("Chỉ cần nhà phát triển của tôi có thể sử dụng các tùy chọn này.", ephemeral=True)
+            await interaction.send("Chỉ nhà phát triển của tôi có thể sử dụng các tùy chọn này.", ephemeral=True)
             return
 
         return True

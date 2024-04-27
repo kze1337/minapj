@@ -10,15 +10,18 @@ import os
 import pickle
 import subprocess
 import traceback
+import zlib
 from configparser import ConfigParser
 from importlib import import_module
 from subprocess import check_output
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict
 
+import aiofiles
 import aiohttp
 import disnake
 import requests
 import spotipy
+from async_timeout import timeout
 from disnake.ext import commands
 from disnake.http import Route
 from dotenv import dotenv_values
@@ -29,7 +32,7 @@ from utils.db import MongoDatabase, LocalDatabase, get_prefix, DBModel, global_d
 from utils.music.checks import check_pool_bots
 from utils.music.errors import GenericError
 from utils.music.local_lavalink import run_lavalink
-from utils.music.models import music_mode, LavalinkPlayer
+from utils.music.models import music_mode, LavalinkPlayer, LavalinkPlaylist, LavalinkTrack, PartialTrack
 from utils.music.spotify import spotify_client
 from utils.others import CustomContext, token_regex, sort_dict_recursively
 from utils.owner_panel import PanelView
@@ -41,9 +44,12 @@ import time
 from utils.user.user import database_handler
 
 
+native_sources = ("http", "youtube", "soundcloud", "deezer", "tts", "reddit", "ocremix", "tiktok", "mixcloud", "soundgasm", "flowerytts", "vimeo", "twitch", "bandcamp", "local")
+
 class BotPool:
 
     bots: List[BotCore] = []
+    guild_bots: Dict[str, List[BotCore]] = {}
     killing_state = False
     command_sync_config = commands.CommandSyncFlags(
                     allow_command_deletion=True,
@@ -84,10 +90,38 @@ class BotPool:
         self.controller_bot: Optional[BotCore] = None
         self.current_useragent = self.reset_useragent()
         self.processing_gc: bool = False
+        self.lavalink_connect_queue = {}
 
     def reset_useragent(self):
         self.current_useragent = generate_user_agent()
 
+    async def connect_lavalink_queue_task(self, identifier: str):
+
+        delay_secs = int(self.config.get("LAVALINK_QUEUE_DELAY", 1.5))
+
+        try:
+            while True:
+                async with timeout(600):
+                    bot, data = await self.lavalink_connect_queue[identifier].get()
+                    await bot.get_cog("Music").connect_node(data)
+                    await asyncio.sleep(delay_secs)
+        except asyncio.TimeoutError:
+            pass
+
+    def get_guild_bots(self, guild_id: int) -> list:
+        return self.bots + self.guild_bots.get(str(guild_id), [])
+
+    def get_all_bots(self) -> list:
+
+        allbots = set()
+
+        for botlist in self.guild_bots.values():
+
+            allbots.update(botlist)
+
+        allbots.update(self.bots)
+
+        return list(allbots)
 
     @property
     def database(self) -> Union[LocalDatabase, MongoDatabase]:
@@ -174,25 +208,72 @@ class BotPool:
                 traceback.print_tb(e.__traceback__)
                 e = repr(e)
             self.failed_bots[bot.identifier] = e
-            self.bots.remove(bot)
+            try:
+                self.bots.remove(bot)
+            except:
+                pass
 
     async def run_bots(self, bots: List[BotCore]):
         await asyncio.wait(
             [asyncio.create_task(self.start_bot(bot)) for bot in bots]
         )
 
-    def load_playlist_cache(self):
+    async def load_playlist_cache(self):
 
         try:
-            with open(f"./playlist_cache.json") as file:
-                self.playlist_cache = json.load(file)
+            async with aiofiles.open(f"./.playlist_cache.pkl", 'rb') as file:
+                data = pickle.loads(zlib.decompress(await file.read()))
         except FileNotFoundError:
             return
+
+        for url, track_data in data.items():
+            self.playlist_cache[url] = self.process_track_cls(track_data)
+
+    def process_track_cls(self, data: list, playlists: dict = None):
+
+        if not playlists:
+            playlists = {}
+
+        tracks = []
+
+        for info in data:
+
+            if playlist := info.pop("playlist", None):
+
+                try:
+                    playlist = playlists[playlist["url"]]
+                except KeyError:
+                    playlist_cls = LavalinkPlaylist(
+                        {
+                            'loadType': 'PLAYLIST_LOADED',
+                            'playlistInfo': {
+                                'name': playlist["name"],
+                                'selectedTrack': -1
+                            },
+                            'tracks': []
+                        }, url=playlist["url"]
+                    )
+                    playlists[playlist["url"]] = playlist_cls
+                    playlist = playlist_cls
+
+            if info["sourceName"] not in native_sources:
+                try:
+                    del info["id"]
+                except KeyError:
+                    pass
+
+            if info.get("is_partial"):
+                track = PartialTrack(info=info)
+            else:
+                track = LavalinkTrack(id_=info.get("id", ""), info=info, playlist=playlist, requester=info["extra"]["requester"], pluginInfo=info.get("pluginInfo", {}))
+            tracks.append(track)
+
+        return tracks, playlists
 
     async def connect_rpc_ws(self):
 
         if not self.config["RUN_RPC_SERVER"] and (
-                not self.config["RPC_SERVER"] or self.config["RPC_SERVER"] == "ws://localhost:80/ws"):
+                not self.config["RPC_SERVER"] or self.config["RPC_SERVER"].replace("$PORT", port := os.environ.get("PORT", "80")) == f"ws://localhost:{port}/ws"):
             pass
         else:
             await self.ws_client.ws_loop()
@@ -231,8 +312,8 @@ class BotPool:
 
         if self.config["AUTO_DOWNLOAD_LAVALINK_SERVERLIST"]:
             ini_file = "auto_lavalink.ini"
-            print(f"Downloading list of lavalink servers (file: {ini_file})")
-            r = requests.get(self.config["LAVALINK_SERVER_LIST"], allow_redirects=True)
+            print(f"Tải xuống danh sách các máy chủ Lavalink (tệp: {ini_file})")
+            r = requests.get(self.config["LAVALINK_SERVER_LIST"], allow_redirects=False)
             with open("auto_lavalink.ini", 'wb') as f:
                 f.write(r.content)
             r.close()
@@ -257,11 +338,12 @@ class BotPool:
         else:
             for key, value in {section: dict(config.items(section)) for section in config.sections()}.items():
                 value["identifier"] = key.replace(" ", "_")
-                value["secure"] = value.get("secure") == "true"
+                value["secure"] = value.get("secure", "").lower() == "true"
                 value["port"] = value["port"].replace("{SERVER_PORT}", os.environ.get("SERVER_PORT") or "8090")
-                value["search"] = value.get("search") != "false"
-                value["retry_403"] = value.get("retry_403") == "true"
-                value["search_providers"] = value.get("search_providers", "").strip().split() or [self.config["DEFAULT_SEARCH_PROVIDER"]] + [s for s in ("ytsearch", "scsearch") if s != self.config["DEFAULT_SEARCH_PROVIDER"]]
+                value["search"] = value.get("search", "").lower() != "false"
+                value["retry_403"] = value.get("retry_403", "").lower() == "true"
+                value["enqueue_connect"] = value.get("enqueue_connect", "").lower() == "true"
+                value["search_providers"] = value.get("search_providers", "").strip().split()
                 LAVALINK_SERVERS[key] = value
 
         start_local = None
@@ -283,12 +365,12 @@ class BotPool:
                         self.config['USE_JABBA'] = False
                         if not square_cfg.get("SUBDOMAIN"):
                             self.config["RUN_RPC_SERVER"] = False
-                        print("Sử dụng cấu hình tự động tại SquareCloud\n"
+                        print("Usando a configuração automática na squarecloud\n"
                               f"Lavalink local: {start_local}\n"
                               f"YTDL: {self.config['USE_YTDL']}\n"
-                              f"Mem: {square_cfg['MEMORY']}\n"
+                              f"Memória: {square_cfg['MEMORY']}\n"
                               f"Run RPC Server: {self.config['RUN_RPC_SERVER']}\n"
-                              f"Use JABBA: {self.config['USE_JABBA']}")
+                              f"Usando JABBA: {self.config['USE_JABBA']}")
                     break
 
         if start_local is None:
@@ -298,11 +380,9 @@ class BotPool:
             else:
                 start_local = False
 
-        #!!! INTENTS
         intents = disnake.Intents(**{i[:-7].lower(): v for i, v in self.config.items() if i.lower().endswith("_intent")})
         intents.members = True
         intents.guilds = True
-        intents.messages = True
 
         mongo_key = self.config.get("MONGO")
 
@@ -313,6 +393,15 @@ class BotPool:
             print("🔰 Database in use:" + Fore.CYAN + " TinyMongo", Style.RESET_ALL)
 
         self.local_database = LocalDatabase()
+
+        os.environ.update(
+            {
+                "GIT_DIR": self.config["GIT_DIR"],
+                "JISHAKU_HIDE": "true",
+                "JISHAKU_NO_DM_TRACEBACK": "true",
+                "JISHAKU_NO_UNDERSCORE": "true",
+             }
+        )
 
         try:
             self.commit = check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
@@ -327,8 +416,6 @@ class BotPool:
             self.remote_git_url = self.config["SOURCE_REPO"]
 
         prefix = get_prefix if intents.message_content else commands.when_mentioned
-
-        self.load_playlist_cache()
 
         self.ws_client = WSClient(self.config["RPC_SERVER"], pool=self)
 
@@ -357,7 +444,7 @@ class BotPool:
             elif (token := tokens.pop()) not in all_tokens.values():
                 all_tokens[k] = token
 
-        if self.config["INTERACTION_BOTS"] or self.config["INTERACTION_BOTS_CONTROLLER"]:
+        if self.config["INTERACTION_BOTS"]:
             interaction_bot_reg = None
         else:
             try:
@@ -365,7 +452,7 @@ class BotPool:
             except:
                 interaction_bot_reg = None
 
-        def load_bot(bot_name: str, token: str):
+        def load_bot(bot_name: str, token: str, guild_id: str = None):
 
             try:
                 token = token.split().pop()
@@ -395,14 +482,6 @@ class BotPool:
             )
 
             bot.http.token = token
-
-            os.environ.update(
-                {
-                    "JISHAKU_HIDE": "true",
-                    "JISHAKU_NO_DM_TRACEBACK": "true",
-                    "JISHAKU_NO_UNDERSCORE": "true",
-                }
-            )
 
             bot.load_extension("jishaku")
 
@@ -465,6 +544,49 @@ class BotPool:
                 except KeyError:
                     pass
 
+                try:
+                    allow_private = inter.application_command.extras["allow_private"]
+                except KeyError:
+                    allow_private = False
+
+                if inter.bot.exclusive_guild_id and inter.guild_id != inter.bot.exclusive_guild_id:
+                    raise GenericError("Máy chủ này không được phép sử dụng lệnh của tôi...")
+
+                if self.config["COMMAND_LOG"] and inter.guild and not (await inter.bot.is_owner(inter.author)):
+                    try:
+                        print(
+                            f"cmd log: [user: {inter.author} - {inter.author.id}] - [guild: {inter.guild.name} - {inter.guild.id}]"
+                            f" - [cmd: {inter.data.name}] {datetime.datetime.utcnow().strftime('%d/%m/%Y - %H:%M:%S')} (UTC) - {inter.filled_options}\n" + (
+                                        "-" * 15))
+                    except:
+                        traceback.print_exc()
+
+                if not inter.guild_id:
+
+                    if allow_private:
+                        return True
+
+                    raise GenericError("Lệnh này không thể chạy trên tin nhắn riêng tư.\n"
+                                      "Sử dụng trên một số máy chủ có thêm bot tương thích.")
+
+                if str(inter.bot.user.id) in self.config["INTERACTION_BOTS_CONTROLLER"]:
+
+                    if not allow_private:
+
+                        available_bot = False
+
+                        for bot in inter.bot.pool.get_guild_bots(inter.guild_id):
+                            if bot.appinfo and (
+                                    bot.appinfo.bot_public or await bot.is_owner(inter.author)) and bot.get_guild(
+                                    inter.guild_id):
+                                available_bot = True
+                                break
+
+                        if not available_bot:
+                            raise GenericError(
+                                "**Không có bot có sẵn cho máy chủ, thêm ít nhất một bằng cách nhấp vào nút bên dưới.**",
+                                components=[disnake.ui.Button(custom_id="bot_invite", label="Thêm các bot")])
+
                 if not kwargs:
                     kwargs["return_first"] = True
 
@@ -515,39 +637,6 @@ class BotPool:
 
                             self._command_sync_flags = commands.CommandSyncFlags.none()
 
-                            if self.config["INTERACTION_BOTS"] and self.config["ADD_REGISTER_COMMAND"]:
-
-                                @bot.slash_command(
-                                    name=disnake.Localized("register_commands",data={disnake.Locale.pt_BR: "registrar_comandos"}),
-                                    description="Sử dụng lệnh này nếu các lệnh gạch chéo (/) khác của tôi không khả dụng..."
-                                )
-                                async def register_commands(
-                                        inter: disnake.AppCmdInter,
-                                ):
-                                    interaction_invites = ""
-
-                                    for b in self.bots:
-
-                                        if not b.interaction_id:
-                                            continue
-
-                                        interaction_invites += f"[`{disnake.utils.escape_markdown(str(b.user.name))}`]({disnake.utils.oauth_url(b.user.id, scopes=['applications.commands'])}) "
-
-                                    embed = disnake.Embed(
-                                        description="**Chú ý!** Tất cả các lệnh gạch chéo lên (/) của tôi đều hoạt động thông qua ứng dụng "
-                                                     f"với một trong những tên bên dưới:**\n{interaction_invites}\n\n"
-                                                     "**Nếu các lệnh ứng dụng trên không được hiển thị khi gõ dấu gạch chéo lên (/), "
-                                                     "click vào tên bên trên để tích hợp lệnh gạch chéo vào "
-                                                     "máy chủ.",
-                                        color=bot.get_color()
-                                    )
-
-                                    if not inter.author.guild_permissions.manage_guild:
-                                        embed.description += "\n\n**Lưu ý:** Bạn sẽ cần có quyền **Quản lý" \
-                                                              "Server** để tích hợp các lệnh vào máy chủ hiện tại."
-
-                                    await inter.send(embed=embed, ephemeral=True)
-
                             if bot.config["AUTO_SYNC_COMMANDS"]:
                                 await bot.sync_app_commands(force=True)
 
@@ -571,22 +660,34 @@ class BotPool:
 
                     bot.bot_ready = True
 
-                print(Fore.CYAN + f"Xin chào {bot.owner}, Chúc bạn một ngày tốt lành!", Style.RESET_ALL)
-                print(Fore.RED + f"Prefix của tôi là: {bot.default_prefix}", Style.RESET_ALL)
-                print(Fore.YELLOW + "Disnake version: " + Fore.GREEN + disnake.__version__, Style.RESET_ALL)
-                print("Sử dụng cấu hình:\n"
-                              f"Lavalink local: {start_local}\n"
-                              f"YTDL: {self.config['USE_YTDL']}\n"
-                              f"Run RPC Server: {self.config['RUN_RPC_SERVER']}\n"
-                              f"Use JABBA: {self.config['USE_JABBA']}")
+                print(f'{bot.user} - [{bot.user.id}] Online.')
 
-            self.bots.append(bot)
+            if guild_id:
+                bot.exclusive_guild_id = int(guild_id)
+                try:
+                    self.guild_bots[guild_id].append(bot)
+                except KeyError:
+                    self.guild_bots = {guild_id: [bot]}
+            else:
+                self.bots.append(bot)
 
         if len(all_tokens) > 1:
             self.single_bot = False
 
         for k, v in all_tokens.items():
             load_bot(k, v)
+
+        try:
+            with open("guild_bots.json") as f:
+                guild_bots = json.load(f)
+        except FileNotFoundError:
+            pass
+        except Exception:
+            traceback.print_exc()
+        else:
+            for guild_id, guildbotsdata in guild_bots.items():
+                for n, guildbottoken in enumerate(guildbotsdata):
+                    load_bot(f"{guild_id}_{n}", guildbottoken, guild_id)
 
         message = ""
 
@@ -608,6 +709,12 @@ class BotPool:
 
         loop = asyncio.get_event_loop()
 
+        loop.create_task(self.load_playlist_cache())
+
+        for lserver in LAVALINK_SERVERS.values():
+            self.lavalink_connect_queue[lserver["identifier"]] = asyncio.Queue()
+            loop.create_task(self.connect_lavalink_queue_task(lserver["identifier"]))
+
         if start_local:
             loop.create_task(self.start_lavalink(loop=loop))
 
@@ -615,7 +722,7 @@ class BotPool:
 
             if not message:
 
-                for bot in self.bots:
+                for bot in self.get_all_bots():
                     loop.create_task(self.start_bot(bot))
 
                 loop.create_task(self.connect_rpc_ws())
@@ -633,7 +740,7 @@ class BotPool:
             loop.create_task(self.connect_rpc_ws())
             try:
                 loop.run_until_complete(
-                    self.run_bots(self.bots)
+                    self.run_bots(self.get_all_bots())
                 )
             except KeyboardInterrupt:
                 return
@@ -650,6 +757,7 @@ class BotCore(commands.AutoShardedBot):
         self.color = kwargs.pop("embed_color", None)
         self.identifier = kwargs.pop("identifier", "")
         self.appinfo: Optional[disnake.AppInfo] = None
+        self.exclusive_guild_id: Optional[int] = None
         self.bot_ready = False
         self.initializing = False
         self.player_skins = {}
@@ -666,8 +774,9 @@ class BotCore(commands.AutoShardedBot):
         super().__init__(*args, **kwargs)
         self.music = music_mode(self)
         self.interaction_id: Optional[int] = None
-        self.db_handler = database_handler() 
-        self.db = None 
+        self.wavelink_node_reconnect_tasks = {}
+        self.db_handler = database_handler()
+        self.db = None
 
         for i in self.config["OWNER_IDS"].split("||"):
 
@@ -696,15 +805,17 @@ class BotCore(commands.AutoShardedBot):
             skin = skin[:-3]
 
             if skin in self.config["IGNORE_SKINS"].split() and skin != "default":
+                print(f"{self.user} | Skin {skin}.py ignorada")
                 continue
 
             try:
                 skin_file = import_module(f"utils.music.skins.normal_player.{skin}")
                 if not hasattr(skin_file, "load"):
+                    print(f"Skin ignorada: {skin}.py | Função load() não configurada/encontrada...")
                     continue
                 self.player_skins[skin] = skin_file.load()
             except Exception:
-                print(f"Player interface not loading [normal_player]: {traceback.format_exc()}")
+                print(f"Falha ao carregar skin [normal_player]: {traceback.format_exc()}")
         if self.default_skin not in self.player_skins:
             self.default_skin = "default"
 
@@ -715,16 +826,17 @@ class BotCore(commands.AutoShardedBot):
             skin = skin[:-3]
 
             if skin in self.config["IGNORE_STATIC_SKINS"].split() and skin != "default":
-                print(f"{self.user} | Skin {skin}.py ignored")
+                print(f"{self.user} | Skin {skin}.py ignorada")
                 continue
 
             try:
                 skin_file = import_module(f"utils.music.skins.static_player.{skin}")
                 if not hasattr(skin_file, "load"):
+                    print(f"Skin ignorada: {skin}.py | Função load() não configurada/encontrada...")
                     continue
                 self.player_static_skins[skin] = skin_file.load()
             except Exception:
-                print(f"Player interface not loading [static player]: {traceback.format_exc()}")
+                print(f"Falha ao carregar skin [static_player]: {traceback.format_exc()}")
         if self.default_static_skin not in self.player_static_skins:
             self.default_static_skin = "default"
 
@@ -815,6 +927,9 @@ class BotCore(commands.AutoShardedBot):
 
     async def is_owner(self, user: Union[disnake.User, disnake.Member]) -> bool:
 
+        if self.exclusive_guild_id:
+            return await self.pool.controller_bot.is_owner(user)
+
         if user.id in self.env_owner_ids:
             return True
 
@@ -853,37 +968,52 @@ class BotCore(commands.AutoShardedBot):
         except:
             traceback.print_exc()
 
-    def sync_command_cooldowns(self):
+    def sync_command_cooldowns(self, force=False):
 
-        for b in self.pool.bots:
+        for b in self.pool.get_all_bots():
 
-            if not b.bot_ready or b == self:
+            if b == self and force is False:
                 continue
 
             for cmd in b.commands:
+                cmd.ignore_extra = False
                 if cmd.extras.get("exclusive_cooldown"): continue
-                self.get_command(cmd.name)._buckets = cmd._buckets
+                c = self.get_command(cmd.name)
+                c.ignore_extra = False
+                if self.pool.config["ENABLE_COMMANDS_COOLDOWN"] is False:
+                    c._buckets._cooldown = None
+                else:
+                    c._buckets = cmd._buckets
 
             for cmd in b.slash_commands:
                 c = self.get_slash_command(cmd.name)
                 if not c: continue
                 c.body.dm_permission = False
-                if c.extras.get("exclusive_cooldown"): continue
-                c._buckets = cmd._buckets
+                if self.pool.config["ENABLE_COMMANDS_COOLDOWN"] is False:
+                    c._buckets._cooldown = None
+                else:
+                    if c.extras.get("exclusive_cooldown"): continue
+                    c._buckets = cmd._buckets
 
             for cmd in b.user_commands:
                 c = self.get_user_command(cmd.name)
                 if not c: continue
                 c.body.dm_permission = False
-                if c.extras.get("exclusive_cooldown"): continue
-                c._buckets = cmd._buckets
+                if self.pool.config["ENABLE_COMMANDS_COOLDOWN"] is False:
+                    c._buckets._cooldown = None
+                else:
+                    if c.extras.get("exclusive_cooldown"): continue
+                    c._buckets = cmd._buckets
 
             for cmd in b.message_commands:
                 c = self.get_message_command(cmd.name)
                 if not c: continue
                 c.body.dm_permission = False
-                if c.extras.get("exclusive_cooldown"): continue
-                c._buckets = cmd._buckets
+                if self.pool.config["ENABLE_COMMANDS_COOLDOWN"] is False:
+                    c._buckets._cooldown = None
+                else:
+                    if c.extras.get("exclusive_cooldown"): continue
+                    c._buckets = cmd._buckets
 
     async def can_send_message(self, message: disnake.Message):
 
@@ -900,10 +1030,13 @@ class BotCore(commands.AutoShardedBot):
 
     async def on_message(self, message: disnake.Message):
 
-        if not self.bot_ready or not self.appinfo:
+        if not self.bot_ready or not self.appinfo or self.is_closed():
             return
 
         if not message.guild:
+            return
+
+        if self.exclusive_guild_id and message.guild.id != self.exclusive_guild_id:
             return
 
         try:
@@ -937,16 +1070,16 @@ class BotCore(commands.AutoShardedBot):
             embed.description = f"**Xin chào {message.author.mention}.**"
 
             if not self.config["INTERACTION_COMMAND_ONLY"]:
-                embed.description += f"\n\nMy prefix on the server is: **{prefix}** `(my mention also works as a prefix).`\n"\
-                                     f"To see all my commands use **{prefix}help**"
+                embed.description += f"\n\nTiền tố của tôi trên máy chủ là: **{prefix}** `(đề cập đến tôi cũng hoạt động như một tiền tố).`\n"\
+                                     f"Để xem tất cả các lệnh của tôi, hãy sử dụng **{prefix}help**"
 
             bot_count = 0
 
-            if not self.command_sync_flags.sync_commands and self.config["INTERACTION_BOTS"]:
+            if self != self.pool.controller_bot:
 
                 interaction_invites = []
 
-                for b in self.pool.bots:
+                for b in self.pool.get_guild_bots(message.guild.id):
 
                     if not b.interaction_id:
                         continue
@@ -955,9 +1088,13 @@ class BotCore(commands.AutoShardedBot):
                         if b.appinfo.bot_public and b.user not in message.guild.members:
                             bot_count += 1
                     except AttributeError:
-                        pass
+                        continue
 
-                    interaction_invites.append(f"[`{disnake.utils.escape_markdown(str(b.user.name))}`]({disnake.utils.oauth_url(b.user.id, scopes=['applications.commands'])}) ")
+                    interaction_invites.append(f"[`{disnake.utils.escape_markdown(str(b.user.name))}`](https://discord.com/oauth2/authorize?client_id={b.user.id}) ")
+
+                if not interaction_invites:
+                    interaction_invites.append(
+                        f"[`{disnake.utils.escape_markdown(str(self.pool.controller_bot.user.name))}`](https://discord.com/oauth2/authorize?client_id={self.pool.controller_bot.user.id}) ")
 
                 if interaction_invites:
                     embed.description += f"\n\nLệnh gạch chéo (/) của tôi hoạt động thông qua "\
@@ -1011,6 +1148,27 @@ class BotCore(commands.AutoShardedBot):
         except:
             pass
 
+        if not ctx.valid and message.content.startswith(self.user.mention) and message.author.voice:
+
+            query = str(message.content)
+
+            for m in message.mentions:
+                query = query.replace(m.mention, "", 1)
+
+            query = query.strip()
+
+            if query:
+                play_cmd = self.get_slash_command("play")
+                self.dispatch("pool_dispatch", ctx, self.user.id)
+                try:
+                    await play_cmd.callback(
+                        inter=ctx, query=query, self=play_cmd.cog, position=0, options=False, force_play="no",
+                        manual_selection=False, repeat_amount=0, server=None
+                    )
+                except Exception as e:
+                    self.dispatch("command_error", ctx, e)
+                return
+
         self.dispatch("song_request", ctx, message)
 
         if not ctx.valid:
@@ -1045,7 +1203,7 @@ class BotCore(commands.AutoShardedBot):
         try:
             if isinstance(channel.parent, disnake.ForumChannel):
 
-                if channel.owner_id in (bot.user.id for bot in self.pool.bots if bot.bot_ready):
+                if channel.owner_id in (bot.user.id for bot in self.pool.get_guild_bots(channel.guild.id) if bot.bot_ready):
 
                     if raise_error is False:
                         return False
@@ -1110,53 +1268,28 @@ class BotCore(commands.AutoShardedBot):
 
     async def on_application_command_autocomplete(self, inter: disnake.ApplicationCommandInteraction):
 
-        if not self.bot_ready:
+        if not self.bot_ready or not self.is_ready():
             return []
 
         if not inter.guild_id:
+            return []
+
+        if self.exclusive_guild_id and inter.guild_id != self.exclusive_guild_id:
             return []
 
         await super().on_application_command_autocomplete(inter)
 
     async def on_application_command(self, inter: disnake.ApplicationCommandInteraction):
 
-        if not inter.guild_id:
-            await inter.send("Lệnh của tôi không thể được sử dụng trong DM.\n"
-                              "Sử dụng nó trên máy chủ nơi tôi có mặt.")
+        if not self.bot_ready or self.is_closed():
+            await inter.send("Tôi vẫn đang khởi tạo...\nVui lòng đợi thêm một lát...", ephemeral=True)
             return
-
-        if not self.bot_ready:
-            await inter.send("Tôi vẫn đang khởi tạo...\nVui lòng đợi thêm một lát nữa...", ephemeral=True)
-            return
-
-        if self.config["COMMAND_LOG"] and inter.guild and not (await self.is_owner(inter.author)):
-            try:
-                print(f"cmd log: [user: {inter.author} - {inter.author.id}] - [guild: {inter.guild.name} - {inter.guild.id}]"
-                      f" - [cmd: {inter.data.name}] {datetime.datetime.utcnow().strftime('%d/%m/%Y - %H:%M:%S')} (UTC) - {inter.filled_options}\n" + ("-" * 15))
-            except:
-                traceback.print_exc()
-
-
-
-        if str(self.user.id) in self.config["INTERACTION_BOTS_CONTROLLER"]:
-
-            available_bot = False
-
-            for bot in self.pool.bots:
-                if bot.appinfo and (bot.appinfo.bot_public or await bot.is_owner(inter.author)) and bot.get_guild(inter.guild_id):
-                    available_bot = True
-                    break
-
-            if not available_bot:
-                await inter.send("**Không có bot có sẵn cho máy chủ, thêm ít nhất một bằng cách nhấp vào nút bên dưới.**",
-                                 ephemeral=True, components=[disnake.ui.Button(custom_id="bot_invite", label="Thêm bot")])
-                return
 
         await super().on_application_command(inter)
 
-    def load_modules(self):
+    def load_modules(self, module_list: list = None):
 
-        modules_dir = "modules"
+        modules_dir = ["modules", "modules_dev"]
 
         load_status = {
             "reloaded": [],
@@ -1165,32 +1298,36 @@ class BotCore(commands.AutoShardedBot):
 
         bot_name = self.user or self.identifier
 
-        for item in os.walk(modules_dir):
-            files = filter(lambda f: f.endswith('.py'), item[-1])
-            for file in files:
-                filename, _ = os.path.splitext(file)
-                module_filename = os.path.join(modules_dir, filename).replace('\\', '.').replace('/', '.')
-                try:
-                    self.reload_extension(module_filename)
-                    if self.pool.controller_bot == self and not self.bot_ready:
-                        print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Reloaded {filename}.py.")
-                    load_status["reloaded"].append(f"{filename}.py")
-                except (commands.ExtensionAlreadyLoaded, commands.ExtensionNotLoaded):
+        for module_dir in modules_dir:
+
+            for item in os.walk(module_dir):
+                files = filter(lambda f: f.endswith('.py'), item[-1])
+                for file in files:
+                    if module_list and file not in module_list:
+                        continue
+                    filename, _ = os.path.splitext(file)
+                    module_filename = os.path.join(module_dir, filename).replace('\\', '.').replace('/', '.')
                     try:
-                        self.load_extension(module_filename)
+                        self.reload_extension(module_filename)
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Loaded {filename}.py.")
-                        load_status["loaded"].append(f"{filename}.py")
+                            print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Reloaded {filename}.py.")
+                        load_status["reloaded"].append(f"{filename}.py")
+                    except (commands.ExtensionAlreadyLoaded, commands.ExtensionNotLoaded):
+                        try:
+                            self.load_extension(module_filename)
+                            if self.pool.controller_bot == self and not self.bot_ready:
+                                print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Loaded {filename}.py.")
+                            load_status["loaded"].append(f"{filename}.py")
+                        except Exception as e:
+                            if self.pool.controller_bot == self and not self.bot_ready:
+                                print(Fore.RED + f"{'=' * 48}\n[❌] {bot_name} - Failed to load/reload module: {filename}")
+                                raise e
+                            return load_status
                     except Exception as e:
                         if self.pool.controller_bot == self and not self.bot_ready:
                             print(Fore.RED + f"{'=' * 48}\n[❌] {bot_name} - Failed to load/reload module: {filename}")
                             raise e
                         return load_status
-                except Exception as e:
-                    if self.pool.controller_bot == self and not self.bot_ready:
-                        print(Fore.RED + f"{'=' * 48}\n[❌] {bot_name} - Failed to load/reload module: {filename}")
-                        raise e
-                    return load_status
 
         if self.pool.controller_bot == self and not self.bot_ready:
             print(f"{'=' * 48}")

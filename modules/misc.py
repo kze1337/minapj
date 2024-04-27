@@ -67,7 +67,7 @@ class Misc(commands.Cog):
         except AttributeError:
             pass
 
-        if [i for i in ("{players_count}", "{players_count_allbotchannels}", "{players_count_allbotservers}") if i in text]:
+        if [i for i in ("{players_count}", "{players_user_count}","{players_count_allbotchannels}", "{players_count_allbotservers}") if i in text]:
 
             channels = set()
             guilds = set()
@@ -124,7 +124,6 @@ class Misc(commands.Cog):
             .replace("{uptime}", time_format((disnake.utils.utcnow() - self.bot.uptime).total_seconds() * 1000,
                                              use_names=True))
 
-
     async def presences(self):
 
         try:
@@ -163,6 +162,8 @@ class Misc(commands.Cog):
             activities = cycle(activities)
 
             ignore_sleep = False
+
+            await asyncio.sleep(120)
 
             while True:
 
@@ -486,7 +487,8 @@ class Misc(commands.Cog):
 
 
     @commands.slash_command(
-        description=f"{desc_prefix}Xem thông tin về tôi.", cooldown=about_cd, dm_permission=False
+        description=f"{desc_prefix}Hiển thị thông tin về tôi.", cooldown=about_cd, dm_permission=False,
+        extras={"allow_private": True}
     )
     async def about(
             self,
@@ -518,7 +520,10 @@ class Misc(commands.Cog):
 
         guild = bot.get_guild(inter.guild_id) or inter.guild
 
-        color = bot.get_color(inter.guild.me if inter.guild else guild.me)
+        try:
+            color = bot.get_color(inter.guild.me if inter.guild else guild.me)
+        except:
+            color = bot.get_color()
 
         embed = disnake.Embed(description="", color=color)
 
@@ -528,11 +533,13 @@ class Misc(commands.Cog):
 
         all_guilds_ids = set()
 
-        for b in bot.pool.bots:
+        allbots = self.bot.pool.get_all_bots()
+
+        for b in allbots:
             for g in b.guilds:
                 all_guilds_ids.add(g.id)
 
-        guilds_size  = len(all_guilds_ids)
+        guilds_size = len(all_guilds_ids)
 
         latency = round(bot.latency * 100)
         if latency >= 1000:
@@ -554,7 +561,7 @@ class Misc(commands.Cog):
         user_count = 0
         bot_count = 0
 
-        botpool_ids = [b.user.id for b in self.bot.pool.bots]
+        botpool_ids = [b.user.id for b in allbots]
 
         node_data = {}
         nodes_available = set()
@@ -566,7 +573,7 @@ class Misc(commands.Cog):
             else:
                 user_count += 1
 
-        for b in bot.pool.bots:
+        for b in allbots:
 
             for user in b.users:
 
@@ -611,7 +618,7 @@ class Misc(commands.Cog):
                     except AttributeError:
                         continue
                     for u in vc.members:
-                        if u.bot:
+                        if u.bot or u.voice.deaf or u.voice.self_deaf:
                             continue
                         listeners.add(u.id)
 
@@ -637,14 +644,16 @@ class Misc(commands.Cog):
             node_txt_final += "\n"
         node_txt_final += "\n".join(nodes_unavailable)
 
-        embed.description += f"### Thông tin của {bot.user.name}#{bot.user.discriminator}:\n" \
+        if len(allbots) < 2:
+
+            embed.description += f"### Thông tin của {bot.user.name}#{bot.user.discriminator}:\n" \
                             f"> <:AyakaAnnoyed:1135418690632957993> **⠂Tổng máy chủ:** `{len(bot.guilds)}`\n" \
                             f"> 👥 **⠂Số người dùng** `{user_count:,}`\n"
 
-        if bot_count:
-            embed.description += f"> 🤖 **⠂Bots:** `{bot_count:,}`\n"
+            if bot_count:
+                embed.description += f"> 🤖 **⠂Bot{'s'[:bot_count^1]}:** `{bot_count:,}`\n"
 
-        if len(bot.pool.bots) > 1:
+        else:
 
             embed.description += "### Tổng số liệu thống kê trên tất cả các bot:\n"
 
@@ -771,12 +780,12 @@ class Misc(commands.Cog):
 
             kwargs = {"redirect_uri": self.bot.config['INVITE_REDIRECT_URL']} if self.bot.config['INVITE_REDIRECT_URL'] else {}
 
-            invite = f"[`{disnake.utils.escape_markdown(str(bot.user.name))}`]({disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'), **kwargs)})"
+            invite = f"[`{disnake.utils.escape_markdown(str(bot.user.name))}`]({disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot',), **kwargs)})"
 
-            if bot.appinfo.flags.gateway_message_content_limited:
-                invite += f" ({len(bot.guilds)}/100)"
+            if not bot.appinfo.flags.gateway_message_content_limited:
+                invite += f" `[{len(bot.guilds)}/100]`"
             else:
-                invite += f" ({len(bot.guilds)})"
+                invite += f" `[{len(bot.guilds)}]`"
 
             if guild and inter.author.guild_permissions.manage_guild and bot.user in guild.members:
                 bots_in_guild.append(invite)
@@ -832,7 +841,7 @@ class Misc(commands.Cog):
 
     @commands.slash_command(
         description=f"{desc_prefix}Hiển thị liên kết lời mời của tôi để bạn thêm tôi vào máy chủ của bạn.",
-        dm_permission=False
+        dm_permission=False, extras={"allow_private": True}
     )
     async def invite(self, inter: disnake.AppCmdInter):
 
@@ -880,7 +889,7 @@ class Misc(commands.Cog):
 
         async with ctx.typing():
 
-            for bot in self.bot.pool.bots:
+            for bot in self.bot.pool.get_all_bots():
 
                 db_data = await bot.pool.database.query_data(collection=str(bot.user.id), db_name=DBModel.guilds, limit=300)
     
@@ -987,7 +996,7 @@ class GuildLog(commands.Cog):
             description=f"__**{title}:**__\n"
                         f"```{guild.name}```\n"
                         f"**ID:** `{guild.id}`\n"
-                        f"**Chủ sở hữu:** `{guild.owner} [{guild.owner.id}]`\n"
+                        # f"**Chủ sở hữu:** `{guild.owner} [{guild.owner.id}]`\n"
                         f"**Ngày tạo** <t:{created_at}:f> - <t:{created_at}:R>\n"
                         f"**Cấp xác minh:** `{guild.verification_level or 'không có'}`\n"
                         f"**Số người dùng:** `{len([m for m in guild.members if not m.bot])}`\n"

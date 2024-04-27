@@ -5,17 +5,16 @@ import asyncio
 import datetime
 import pprint
 import random
-import aiohttp
+import re
 import traceback
 import uuid
 from collections import deque
+from contextlib import suppress
 from itertools import cycle
 from time import time
 from typing import Optional, Union, TYPE_CHECKING, List
 from urllib import parse
 from urllib.parse import quote
-
-import logging
 
 import disnake
 
@@ -32,12 +31,22 @@ if TYPE_CHECKING:
     from utils.client import BotCore
 
 exclude_tags = ["remix", "edit", "extend", "compilation", "mashup"]
+exclude_tags_2 = ["extend", "compilation", "mashup", "nightcore", "8d"]
+emoji_pattern = re.compile('<a?:.+?:\d+?>')
 
 thread_archive_time = {
     60: 30,
     24: 720,
     2880: 720,
     10080: 2880,
+}
+
+providers_dict = {
+    "youtube": "ytmsearch",
+    "soundcloud": "scsearch",
+    "applemusic": "amsearch",
+    "deezer": "dzsearch",
+    "spotify": "spsearch",
 }
 
 
@@ -92,6 +101,7 @@ class PartialTrack:
             "isStream": False,
             "isSeekable": True,
             "sourceName": source_name,
+            "is_partial": True,
             "extra": {
                 "original_id": original_id,
                 "requester": requester,
@@ -101,7 +111,7 @@ class PartialTrack:
             }
         }
 
-        self.id = ""
+        self.id = None
         self.ytid = ""
         self.unique_id = str(uuid.uuid4().hex)[:10]
         self.thumb = self.info["extra"]["thumb"]
@@ -157,7 +167,7 @@ class PartialTrack:
         try:
             return self.info["extra"]["authors_md"]
         except KeyError:
-            return ""
+            return f"`{self.author}`"
 
     @property
     def authors(self) -> List[str]:
@@ -202,14 +212,20 @@ class PartialTrack:
         try:
             return self.info["extra"]["album"]["name"]
         except KeyError:
-            return ""
+            try:
+                self.info["pluginInfo"]["albumName"]
+            except KeyError:
+                return ""
 
     @property
     def album_url(self) -> str:
         try:
             return self.info["extra"]["album"]["url"]
         except KeyError:
-            return ""
+            try:
+                self.info["pluginInfo"]["albumUrl"]
+            except KeyError:
+                return ""
 
     @property
     def playlist_name(self) -> str:
@@ -233,6 +249,16 @@ class LavalinkPlaylist:
         self.data = data
         self.url = kwargs.pop("url")
 
+        try:
+            self.data["playlistInfo"]["thumb"] = kwargs["pluginInfo"]["artworkUrl"]
+        except KeyError:
+            pass
+
+        try:
+            self.data["playlistInfo"]["type"] = kwargs["pluginInfo"]["type"]
+        except KeyError:
+            pass
+
         encoded_name = kwargs.pop("encoded_name", "track")
 
         try:
@@ -243,8 +269,9 @@ class LavalinkPlaylist:
                     pass
         except IndexError:
             pass
+        pluginInfo = kwargs.pop("pluginInfo", {})
         self.tracks = [LavalinkTrack(
-            id_=track[encoded_name], info=track['info'], playlist=self, **kwargs) for track in data['tracks']]
+            id_=track[encoded_name], info=track['info'], pluginInfo=pluginInfo, playlist=self, **kwargs) for track in data['tracks']]
 
     @property
     def name(self):
@@ -273,12 +300,22 @@ class LavalinkTrack(wavelink.Track):
         super().__init__(*args, **kwargs)
         self.title = fix_characters(self.title)
         self.info["title"] = self.title
+        self.info["pluginInfo"] = kwargs.pop("pluginInfo", {})
         self.unique_id = str(uuid.uuid4().hex)[:10]
 
         try:
             self.info['sourceName']
         except:
             self.info['sourceName'] = 'LavalinkTrack'
+
+        try:
+            if (albumname:=fix_characters(self.info["pluginInfo"]["albumName"])) == self.title:
+                del self.info["pluginInfo"]["albumName"]
+                del self.info["pluginInfo"]["albumUrl"]
+            else:
+                self.info["pluginInfo"]["albumName"] = albumname
+        except KeyError:
+            pass
 
         try:
             self.info["extra"]
@@ -326,6 +363,13 @@ class LavalinkTrack(wavelink.Track):
         return self.title
 
     @property
+    def original_id(self) -> str:
+        try:
+            return self.info["extra"]["original_id"]
+        except KeyError:
+            return ""
+
+    @property
     def single_title(self) -> str:
         return self.title
 
@@ -339,6 +383,11 @@ class LavalinkTrack(wavelink.Track):
 
     @property
     def authors_md(self) -> str:
+        try:
+            if self.info['pluginInfo']['artistUrl']:
+                return f"[`{self.author}`](<{self.info['pluginInfo']['artistUrl']}>)"
+        except KeyError:
+            pass
         return f"`{self.author}`"
 
     @property
@@ -350,14 +399,20 @@ class LavalinkTrack(wavelink.Track):
         try:
             return self.info["extra"]["album"]["name"]
         except KeyError:
-            return ""
+            try:
+                return self.info["pluginInfo"]["albumName"]
+            except KeyError:
+                return ""
 
     @property
     def album_url(self) -> str:
         try:
             return self.info["extra"]["album"]["url"]
         except KeyError:
-            return ""
+            try:
+                return self.info["pluginInfo"]["albumUrl"]
+            except KeyError:
+                return ""
 
     @property
     def lyrics(self) -> str:
@@ -402,7 +457,7 @@ class LavalinkPlayer(wavelink.Player):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.version = 1.1
-        self.volume = kwargs.get("volume", 100)
+        self.volume = 100
         self.guild: disnake.Guild = kwargs.pop('guild')
         self.text_channel: Union[disnake.TextChannel,
         disnake.VoiceChannel, disnake.Thread] = kwargs.pop('channel')
@@ -429,6 +484,7 @@ class LavalinkPlayer(wavelink.Player):
         self.filters: dict = {}
         self.idle_task: Optional[asyncio.Task] = None
         self.members_timeout_task: Optional[asyncio.Task] = None
+        self.reconnect_voice_channel_task: Optional[asyncio.Task] = None
         self.idle_endtime: Optional[datetime.datetime] = None
         self.hint_rate = self.bot.config["HINT_RATE"]
         self.command_log: str = ""
@@ -454,11 +510,13 @@ class LavalinkPlayer(wavelink.Player):
         self.is_purging = False
         self.auto_pause = False
         self._session_resuming = kwargs.pop("session_resuming", False)
-        self.last_channel: Optional[disnake.VoiceChannel] = None
+        self._last_channel: Optional[disnake.VoiceChannel] = None
+        self._last_channel_id: Optional[int] = None
         self._rpc_update_task: Optional[asyncio.Task] = None
         self._new_node_task: Optional[asyncio.Task] = None
         self._queue_updater_task: Optional[asyncio.Task] = None
         self.auto_skip_track_task: Optional[asyncio.Task] = None
+        self.native_yt: bool = True
 
         stage_template = kwargs.pop("stage_title_template", None)
 
@@ -507,16 +565,12 @@ class LavalinkPlayer(wavelink.Player):
         except:
             pass
 
-        if self.volume != 100:
-            self.bot.loop.create_task(self.set_volume(self.volume))
-
         self.hints: cycle = []
         self.current_hint: str = ""
         self.last_data: dict = {}
         self.check_skins()
         self.setup_features()
         self.setup_hints()
-        self.native_yt: bool = True
 
         self.bot.dispatch("player_create", player=self)
 
@@ -575,7 +629,7 @@ class LavalinkPlayer(wavelink.Player):
         state = state['state']
 
         if not self.auto_pause:
-            self.last_position = state.get('position', 0)
+            self.last_position = state.get('position') or 0
 
         self.last_update = time() * 1000
         self.position_timestamp = state.get('time', 0)
@@ -602,27 +656,73 @@ class LavalinkPlayer(wavelink.Player):
 
             await cog.error_report_queue.put({"embed": embed})
 
-    
-
-    async def send_track_error(self, embed: disnake.Embed, track: Union[LavalinkTrack, PartialTrack]):
-
-        embed.description += f"\n**Nguồn:** `{track.info['sourceName']}`" \
-                                 f"\n**Máy chủ:** `{disnake.utils.escape_markdown(self.guild.name)} [{self.guild.id}]`"
+    async def reconnect_voice_channel(self):
 
         try:
-            embed.description += f"\n**Kênh:** `{disnake.utils.escape_markdown(self.guild.me.voice.channel.name)} [{self.guild.me.voice.channel.id}]`\n"
-        except:
-            pass
+            vc = self.bot.get_channel(self.last_channel.id)
+        except AttributeError:
+            vc = None
 
-        embed.description += f"**Dữ liệu:** <t:{int(disnake.utils.utcnow().timestamp())}:F>"
+        if not vc:
 
-        if self.guild.icon:
-            embed.set_thumbnail(url=self.guild.icon.with_format("png").url)
+            msg = "Kênh giọng nói đã bị xóa..."
 
-        webhook = self.bot.config["TRACK_ERROR_LOG"]
-        async with aiohttp.ClientSession() as sc:
-            wb = disnake.Webhook.from_url(webhook, session=sc)
-            await wb.send(embed=embed, username=self.bot.user.name, avatar_url=self.bot.user.display_avatar.url)
+            if self.static:
+                self.set_command_log(msg)
+                await self.destroy()
+
+            else:
+                if self.text_channel:
+                    try:
+                        self.bot.loop.create_task(self.text_channel.send(embed=disnake.Embed(
+                        description=msg,
+                        color=self.bot.get_color(self.guild.me)), delete_after=7))
+                    except:
+                        traceback.print_exc()
+                await self.destroy()
+                return
+
+        while True:
+
+            try:
+                self.bot.music.players[self.guild_id]
+            except KeyError:
+                return
+
+            if self.guild.me.voice:
+                if isinstance(vc, disnake.StageChannel) \
+                        and self.guild.me not in vc.speakers \
+                        and vc.permissions_for(self.guild.me).mute_members:
+                    try:
+                        await self.guild.me.edit(suppress=False)
+                    except Exception:
+                        traceback.print_exc()
+                return
+
+            if self.is_closing:
+                return
+
+            if not self._new_node_task:
+
+                try:
+                    can_connect(vc, self.guild, bot=self.bot)
+                except Exception as e:
+                    self.set_command_log(f"Người chơi đã hoàn thành do lỗi: {e}")
+                    await self.destroy()
+                    return
+
+                try:
+                    await self.connect(vc.id)
+                    self.set_command_log(text="Tôi nhận thấy một nỗ lực để ngắt kết nối tôi khỏi kênh."
+                                                "Nếu bạn muốn ngắt kết nối tôi, hãy sử dụng lệnh/nút: **stop**.",
+                                           emoji="⚠️")
+                    self.update = True
+                    await asyncio.sleep(5)
+                    continue
+                except Exception:
+                    traceback.print_exc()
+
+            await asyncio.sleep(30)
 
     async def hook(self, event) -> None:
 
@@ -673,9 +773,6 @@ class LavalinkPlayer(wavelink.Player):
                 return
 
             self.start_time = disnake.utils.utcnow()
-
-            if not self.current.autoplay:
-                self.queue_autoplay.clear()
 
             if self.auto_pause:
                 return
@@ -737,7 +834,7 @@ class LavalinkPlayer(wavelink.Player):
 
             if self.locked:
                 self.set_command_log(
-                    text=f"Bản sao của bài hát thất bại (cố gắng chơi lại): [`{fix_characters(track.title, 15)}`]({track.uri or track.search_uri}). **Gây ra:** `{event.cause}`")
+                    text=f"Phát lại bài hát không thành công (cố gắng phát lại): [`{fix_characters(track.title, 15)}`]({track.uri or track.search_uri}). **Causa:** `{event.cause[:50]}`")
                 self.update = True
                 await send_report()
                 return
@@ -746,7 +843,17 @@ class LavalinkPlayer(wavelink.Player):
 
             self.current = None
 
-            error_403 = False
+            if event.cause == "com.github.topi314.lavasrc.mirror.TrackNotFoundException: Playlist is empty":
+                await send_report()
+                self.set_command_log(text=f"Bài hát [`{fix_characters(track.title, limit=20)}`]({track.uri})"
+                                           "đã bị bỏ qua do không có bài hát ở các nguồn khác "
+                                           "định dạng nhạc có hỗ trợ phát lại gốc...", emoji="⚠️")
+                await asyncio.sleep(3)
+                self.locked = False
+                await self.process_next()
+                return
+
+            youtube_exception = False
             video_not_available = False
 
             cooldown = 10
@@ -757,9 +864,8 @@ class LavalinkPlayer(wavelink.Player):
             )) \
                 or (video_not_available:=event.cause.startswith((
                 "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: This video is not available",
-                "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: YouTube WebM streams are currently not supported."
-            ))
-            or event.message == "Video returned by YouTube isn't what was requested"):
+                "com.sedmelluq.discord.lavaplayer.tools.FriendlyException: YouTube WebM streams are currently not supported.",
+            )) or event.message in ("Video returned by YouTube isn't what was requested", "The video returned is not what was requested.")):
 
                 try:
                     self._new_node_task.cancel()
@@ -769,30 +875,47 @@ class LavalinkPlayer(wavelink.Player):
                 await send_report()
 
                 if video_not_available:
+
+                    if self.node.version > 3:
+
+                        with suppress(IndexError, ValueError):
+                            self.node.search_providers.remove("ytsearch")
+                            self.node.search_providers.remove("ytmsearch")
+                            self.node.partial_providers.remove("ytsearch:\"{isrc}\"")
+                            self.node.partial_providers.remove("ytsearch:\"{title} - {author}\"")
+                            self.node.partial_providers.remove("ytmsearch:\"{isrc}\"")
+                            self.node.partial_providers.remove("ytmsearch:\"{title} - {author}\"")
+
                     self.native_yt = False
                     self.current = None
                     self.queue.appendleft(track)
+
+                    txt = f"Do giới hạn của YouTube trên máy chủ `{self.node.identifier}`. Trong phiên hiện tại " \
+                              "chúng tôi sẽ cố gắng đưa bài hát tương tự lên các nền tảng âm nhạc khác bằng tên " \
+                              "trong số các bài hát trên YouTube đang được xếp hàng (có thể bài hát được phát khác với những gì bạn mong đợi " \
+                              "hoặc thậm chí bị bỏ qua nếu không có kết quả nào được trả về)."
+
+                    try:
+                        await self.text_channel.send(embed=disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me)), delete_after=60)
+                    except:
+                        self.set_command_log(text=txt, emoji="⚠️")
+                    await asyncio.sleep(3)
                     self.locked = False
-                    self.set_command_log(
-                        text=f"Do sự cố kỹ thuật trên máy chủ `{self.node.identifier}` nên người chơi đang sử dụng phương pháp thay thế để tải nhạc từ YouTube"
-                             "(Có lẽ bài hát được phát sẽ khác với mong đợi).",
-                        emoji="⚠️"
-                    )
                     await self.process_next(start_position=self.position)
 
                 else:
                     self._new_node_task = self.bot.loop.create_task(self._wait_for_new_node(
                         f"Máy chủ nhạc **{self.node.identifier}** hiện không khả dụng"
-                        f"(đang chờ máy chủ mới có sẵn)."))
+                         f"(chờ máy chủ mới có sẵn)."))
                 return
 
-            if (event.error == "This IP address has been blocked by YouTube (429)" or
+            if (youtube_exception := (event.error == "This IP address has been blocked by YouTube (429)" or
                 #event.message == "Video returned by YouTube isn't what was requested" or
-                (error_403 := event.cause.startswith(("java.lang.RuntimeException: Not success status code: 403",
-                                                      "java.io.IOException: Invalid status code for video page response: 400")))
-            ):
+                event.cause.startswith(("java.lang.RuntimeException: Not success status code: 403",
+                                                      "java.io.IOException: Invalid status code for video page response: 400"))
+            )):
 
-                if error_403 and self.node.retry_403:
+                if youtube_exception and self.node.retry_403:
 
                     if not hasattr(self, 'retries_403'):
                         self.retries_403 = {"last_time": None, 'counter': 0}
@@ -831,41 +954,30 @@ class LavalinkPlayer(wavelink.Player):
 
                 self.retries_403 = {"last_time": None, 'counter': 0}
 
-                if track.info["sourceName"] == "youtube" or (self.bot.config["PARTIALTRACK_SEARCH_PROVIDER"] == "ytsearch" and
-                                                             track.info["sourceName"] == "spotify"):
+                if youtube_exception:
+                    if self.node.version > 3:
 
+                        with suppress(IndexError, ValueError):
+                            self.node.search_providers.remove("ytsearch")
+                            self.node.search_providers.remove("ytmsearch")
+                            self.node.partial_providers.remove("ytsearch:\"{isrc}\"")
+                            self.node.partial_providers.remove("ytsearch:\"{title} - {author}\"")
+                            self.node.partial_providers.remove("ytmsearch:\"{isrc}\"")
+                            self.node.partial_providers.remove("ytmsearch:\"{title} - {author}\"")
+
+                    self.native_yt = False
+                    self.current = None
+                    self.queue.appendleft(track)
+                    self.locked = False
+                    self.set_command_log(
+                        text=f"Do giới hạn của YouTube trên máy chủ `{self.node.identifier}`. Trong phiên hiện tại"
+                              "sẽ cố gắng đưa bài hát tương tự lên các nền tảng âm nhạc khác bằng tên này"
+                              "trong số các bài hát trên YouTube đang được xếp hàng (có lẽ bài hát được phát khác với mong đợi "
+                              "hoặc thậm chí bị bỏ qua nếu nó không trả về kết quả).",
+                        emoji="⚠️"
+                    )
+                    await self.process_next(start_position=self.position)
                     await send_report()
-
-                    self.node.available = False
-
-                    if self.node._closing:
-                        return
-
-                    await asyncio.sleep(3)
-
-                    current_node: wavelink.Node = self.bot.music.nodes[self.node.identifier]
-                    current_node.close()
-
-                    for player_id in list(self.node.players):
-
-                        p = self.node.players[player_id]
-
-                        node = [n for n in self.bot.music.nodes.values() if n.available and n.is_available]
-                        p.current = p.last_track
-                        if node:
-                            await p.change_node(node[0].identifier)
-                            p.set_command_log(f"Người chơi đã được kết nối lại trên một máy chủ âm nhạc mới: **{p.node.identifier}**.")
-
-                            p.update = True
-                            p.locked = False
-                        else:
-                            try:
-                                p._new_node_task.cancel()
-                            except:
-                                pass
-                            p._new_node_task = p.bot.loop.create_task(p._wait_for_new_node(
-                                f"Máy chủ **{current_node.identifier}** đã nhận giới hạn của YouTube nên không khả dụng"
-                                 f"vào lúc này (đang chờ máy chủ mới có sẵn)."))
                     return
 
             await send_report()
@@ -977,7 +1089,6 @@ class LavalinkPlayer(wavelink.Player):
                     1001,
                     4016,  # Connection started elsewhere
                     4005,  # Already authenticated.
-                    4006,  # Session is no longer valid.
             ):
                 try:
                     vc_id = self.guild.me.voice.channel.id
@@ -992,12 +1103,15 @@ class LavalinkPlayer(wavelink.Player):
                 await self.connect(vc_id)
                 return
 
-            if event.code == 4014:
-                await asyncio.sleep(1)
-                if self.guild and self.guild.me.voice:
-                    return
-                self.set_command_log(f"Trình phát đã bị tắt do mất kết nối với kênh {self.last_channel.mention}...")
-                await self.destroy(force=True)
+            if event.code in (
+                    4014,
+                    4006,  # Session is no longer valid.
+            ):
+                #await asyncio.sleep(1)
+                #if self.guild and self.guild.me.voice:
+                #    return
+                #self.set_command_log(f"O player foi desligado por perca de conexão com o canal {self.last_channel.mention}...")
+                #await self.destroy(force=True)
                 return
 
         if isinstance(event, wavelink.TrackStuck):
@@ -1054,13 +1168,21 @@ class LavalinkPlayer(wavelink.Player):
             try:
                 await self.text_channel.purge(check=check)
             except:
-                print(f"Không xóa được tin nhắn kênh {self.text_channel} [ID: {self.text_channel.id}]:\n"
+                print(f"Falha ao limpar mensagens do canal {self.text_channel} [ID: {self.text_channel.id}]:\n"
                       f"{traceback.format_exc()}")
                 pass
 
     async def connect(self, channel_id: int, self_mute: bool = False, self_deaf: bool = False):
-        self.last_channel = self.bot.get_channel(channel_id)
         await super().connect(channel_id, self_mute=self_mute, self_deaf=True)
+        self._last_channel = self.bot.get_channel(channel_id)
+        self._last_channel_id = channel_id
+
+    @property
+    def last_channel(self):
+        try:
+            return self.guild.me.voice.channel
+        except AttributeError:
+            return self._last_channel
 
     def process_hint(self):
 
@@ -1093,12 +1215,12 @@ class LavalinkPlayer(wavelink.Player):
             hints.append("Khi tạo cuộc trò chuyện/chuỗi trong tin nhắn của người chơi, chế độ yêu cầu bài hát sẽ được kích hoạt "
                           "trong đó (cho phép bạn yêu cầu nhạc chỉ bằng cách gửi tên/link bài hát trong cuộc trò chuyện).")
 
-        if len(self.bot.pool.bots) > 1:
+        if len(self.bot.pool.get_guild_bots(self.guild.id)) > 1:
 
             bots_in_guild = 0
             bots_outside_guild = 0
 
-            for b in self.bot.pool.bots:
+            for b in self.bot.pool.get_guild_bots(self.guild.id):
 
                 if b == self.bot:
                     continue
@@ -1154,16 +1276,29 @@ class LavalinkPlayer(wavelink.Player):
 
     async def members_timeout(self, check: bool, force: bool = False, idle_timeout = None):
 
+        update_msg = True
+
         if self.auto_pause:
+            update_log = True
+            self.auto_pause = False
+            self.set_command_log(emoji="🔋", text="Chế độ **[tiết kiệm tài nguyên]** đã bị tắt.")
             if self.current:
                 try:
                     await self.resolve_track(self.current)
-                    self.paused = False
-                    await self.play(self.current, start=0 if self.current.is_stream else self.position)
+                    if self.current.id:
+                        if self.current.info["sourceName"] == "youtube" and not self.native_yt:
+                            stream = self.current.is_stream
+                            self.queue.appendleft(self.current)
+                            self.current = None
+                            await self.process_next(start_position=0 if stream else self.position)
+                            update_msg = False
+                        else:
+                            await self.play(self.current, start=0 if self.current.is_stream else self.position)
+                    else:
+                        await self.process_next()
+                        update_msg = False
                 except Exception:
                     traceback.print_exc()
-            self.auto_pause = False
-            update_log = True
 
         else:
             update_log = False
@@ -1172,6 +1307,7 @@ class LavalinkPlayer(wavelink.Player):
 
             try:
                 if update_log:
+                    self.set_command_log(emoji="🔋", text="Chế độ **[tiết kiệm tài nguyên]** đã bị tắt.")
                     try:
                         self.auto_skip_track_task.cancel()
                     except:
@@ -1179,7 +1315,7 @@ class LavalinkPlayer(wavelink.Player):
                     if self.current:
                         await asyncio.sleep(1.5)
                         await self.invoke_np(rpc_update=True)
-                    else:
+                    elif update_msg:
                         await self.process_next()
                 await self.update_stage_topic()
             except Exception:
@@ -1225,6 +1361,12 @@ class LavalinkPlayer(wavelink.Player):
                 self.auto_skip_track_task.cancel()
             except:
                 pass
+            self.set_command_log(
+                emoji="🪫",
+                text="Trình phát đang ở chế độ **[tiết kiệm tài nguyên]** (chế độ này sẽ tự động tắt khi "
+                      f"một thành viên tham gia kênh <#{self.channel_id}>)."
+            )
+            self.update = True
             self.auto_skip_track_task = self.bot.loop.create_task(self.auto_skip_track())
             await self.update_stage_topic()
 
@@ -1233,7 +1375,7 @@ class LavalinkPlayer(wavelink.Player):
             if self.is_closing:
                 return
 
-            msg = f"**Người chơi đã bị tắt vì thiếu thành viên trên kênh" + (f"<#{self.guild.me.voice.channel.id}>"
+            msg = "**Trình phát đã bị tắt do thiếu thành viên trên kênh" + (f" <#{self.guild.me.voice.channel.id}>"
                                                                                if self.guild.me.voice else '') + "...**"
             self.command_log = msg
             if not self.static and not self.has_thread:
@@ -1258,13 +1400,13 @@ class LavalinkPlayer(wavelink.Player):
 
         tracks_search = []
 
-        for t in self.played + self.queue_autoplay:
+        if current_track := self.current or self.last_track:
+            tracks_search.append(current_track)
+
+        for t in reversed(self.failed_tracks + self.played):
 
             if len(tracks_search) > 4:
                 break
-
-            if t.duration < 90000:
-                continue
 
             tracks_search.append(t)
 
@@ -1275,8 +1417,6 @@ class LavalinkPlayer(wavelink.Player):
         exception = None
 
         if tracks_search:
-
-            tracks_search.reverse()
 
             self.locked = True
 
@@ -1340,37 +1480,65 @@ class LavalinkPlayer(wavelink.Player):
                             tracks.append(partial_track)
 
                 if not tracks:
-                    if track_data.info["sourceName"] == "youtube":
-                        query = f"https://www.youtube.com/watch?v={track_data.ytid}&list=RD{track_data.ytid}"
+                    if track_data.info["sourceName"] == "youtube" and self.native_yt:
+                        queries = [f"https://www.youtube.com/watch?v={track_data.ytid}&list=RD{track_data.ytid}"]
                     else:
-                        query = f"ytmsearch:{track_data.author}"
-
-                    try:
-                        tracks = await self.node.get_tracks(
-                            query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, autoplay=True,
-                            requester=self.bot.user.id
-                        )
-                    except Exception as e:
-                        if [err for err in ("Could not find tracks from mix", "Could not read mix page") if err in str(e)]:
-                            try:
-                                tracks_ytsearch = await self.node.get_tracks(
-                                    f"ytsearch:\"{track_data.author}\"",
-                                    track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, autoplay=True,
-                                    requester=self.bot.user.id)
-                                track = track_data
-                            except Exception as e:
-                                exception = e
-                                continue
+                        if p_dict:=providers_dict.get(track_data.info["sourceName"]):
+                            providers = [p_dict] + [p for p in self.node.search_providers if p != p_dict]
                         else:
-                            print(traceback.format_exc())
-                            exception = e
-                            await asyncio.sleep(1.5)
+                            providers = self.node.search_providers
+
+                        queries = [f"{sp}:{track_data.author}" for sp in providers]
+
+                    for query in queries:
+
+                        try:
+                            tracks = await self.node.get_tracks(
+                                query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, autoplay=True,
+                                requester=self.bot.user.id
+                            )
+                        except Exception as e:
+                            if [err for err in ("Could not find tracks from mix", "Could not read mix page") if err in str(e)]:
+                                try:
+                                    tracks_ytsearch = await self.node.get_tracks(
+                                        f"{query}:\"{track_data.author}\"",
+                                        track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist, autoplay=True,
+                                        requester=self.bot.user.id)
+                                    break
+                                except Exception as e:
+                                    exception = e
+                                    continue
+                            else:
+                                print(traceback.format_exc())
+                                exception = e
+                                await asyncio.sleep(1.5)
+                                continue
+
+                        try:
+                            tracks = tracks.tracks
+                        except:
+                            pass
+
+                        if not tracks:
                             continue
+
+                        break
+
+                    if not [i in track_data.title.lower() for i in exclude_tags_2]:
+                        final_tracks = []
+                        for t in tracks:
+                            if not any((i in t.title.lower()) for i in exclude_tags_2) and not track_data.uri.startswith(t.uri):
+                                final_tracks.append(t)
+                        tracks = final_tracks or tracks
 
                 track = track_data
                 break
 
             if not tracks:
+                try:
+                    tracks_ytsearch = tracks_ytsearch.tracks
+                except AttributeError:
+                    pass
                 tracks = tracks_ytsearch
                 tracks.reverse()
 
@@ -1446,7 +1614,7 @@ class LavalinkPlayer(wavelink.Player):
             return None
 
     async def process_next(self, start_position: Union[int, float] = 0, inter: disnake.MessageInteraction = None,
-                           force_np=False, clear_autoqueue = True):
+                           force_np=False):
 
         if self.locked or self.is_closing:
             return
@@ -1488,7 +1656,6 @@ class LavalinkPlayer(wavelink.Player):
                 if self.autoplay or self.keep_connected:
                     try:
                         track = await self.get_autoqueue_tracks()
-                        clear_autoqueue = False
                     except:
                         traceback.print_exc()
                         self.locked = False
@@ -1505,7 +1672,6 @@ class LavalinkPlayer(wavelink.Player):
                     return
 
             except Exception:
-                clear_autoqueue = False
                 traceback.print_exc()
                 track = None
 
@@ -1517,67 +1683,77 @@ class LavalinkPlayer(wavelink.Player):
 
         temp_id = None
 
-        if isinstance(track, PartialTrack):
+        if not self.auto_pause:
 
-            if not track.id:
-                try:
-                    await self.resolve_track(track)
-                except Exception as e:
-                    try:
-                        await self.text_channel.send(
-                            embed=disnake.Embed(
-                                description=f"Đã xảy ra sự cố khi xử lý bài hát [{track.title}]({track.uri})... "
-                                            f"```py\n{repr(e)}```",
-                                color=self.bot.get_color()
-                            )
-                        )
-                    except:
-                        traceback.print_exc()
+            if self.node.version > 3:
+                if track.info["sourceName"] not in self.node.info["sourceManagers"] and not isinstance(track, PartialTrack):
+                    track.id = ""
 
-                    self.locked = False
-
-                    await self.process_next()
-                    return
+            if isinstance(track, PartialTrack):
 
                 if not track.id:
                     try:
-                        await self.text_channel.send(
-                            embed=disnake.Embed(
-                                description=f"Bài hát [{track.title}]({track.uri}) không có sẵn...\n"
-                                            f"Chuyển sang bài hát tiếp theo...",
-                                color=self.bot.get_color()
-                            ), delete_after=10
-                        )
-                    except:
-                        traceback.print_exc()
+                        await self.resolve_track(track)
+                    except Exception as e:
+                        try:
+                            await self.text_channel.send(
+                                embed=disnake.Embed(
+                                    description=f"Đã xảy ra sự cố khi xử lý bài hát [{track.title}]({track.uri})... "
+                                                f"```py\n{repr(e)}```",
+                                    color=self.bot.get_color()
+                                )
+                            )
+                        except:
+                            traceback.print_exc()
 
-                    await asyncio.sleep(10)
+                        self.locked = False
 
+                        await self.process_next()
+                        return
+
+                    if not track.id:
+                        try:
+                            await self.text_channel.send(
+                                embed=disnake.Embed(
+                                    description=f"Bài hát [{track.title}]({track.uri}) không có sẵn...\n"
+                                                f"Chuyển sang bài hát tiếp theo...",
+                                    color=self.bot.get_color()
+                                ), delete_after=10
+                            )
+                        except:
+                            traceback.print_exc()
+
+                        await asyncio.sleep(10)
+
+                        self.locked = False
+
+                        await self.process_next()
+                        return
+
+            if not self.native_yt and (track.info["sourceName"] == "youtube" or track.info.get("sourceNameOrig") == "youtube"):
+
+                if track.is_stream or track.duration > 480000:
+                    self.failed_tracks.append(track)
                     self.locked = False
-
                     await self.process_next()
                     return
-
-        if not self.native_yt and (track.info["sourceName"] == "youtube" or track.info.get("sourceNameOrig") == "youtube"):
-
-            if track.is_stream or track.duration > 600000:
-                self.failed_tracks.append(track)
-                await self.process_next()
-                return
-
-            temp_id = track.info.get("temp_id")
-
-            if not temp_id:
 
                 tracks = []
 
                 exceptions = ""
 
                 for provider in self.node.search_providers:
+
                     if provider in ("ytsearch", "ytmsearch"):
                         continue
+
+                    if track.author.endswith(" - topic"):
+                        query = f"{provider}:{track.title} - {track.author[:-8]}"
+                    else:
+                        query = f"{provider}:{track.title}"
+
                     try:
-                        tracks = await self.node.get_tracks(f"{provider}:{track.title}")
+                        tracks = await self.node.get_tracks(query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
                     except:
                         exceptions += f"{traceback.format_exc()}\n"
                         await asyncio.sleep(1)
@@ -1596,86 +1772,92 @@ class LavalinkPlayer(wavelink.Player):
                             break
                     tracks = final_result or tracks
 
-                if not tracks:
+                min_duration = track.duration - 7000
+                max_duration = track.duration + 7000
+
+                final_result = []
+
+                for t in tracks:
+                    if t.is_stream or not min_duration < t.duration < max_duration:
+                        continue
+                    final_result.append(t)
+
+                if not (tracks:=final_result):
                     if exceptions:
                         print(exceptions)
                     self.failed_tracks.append(track)
-                    self.current = track
-                    self.set_command_log(emoji="⚠️", text="Bài hát hiện tại sẽ bị bỏ qua do không có kết quả "
-                                                          "trong chế độ tìm kiếm thay thế của YouTube.")
+                    self.set_command_log(emoji="⚠️", text=f"Bài hát [`{track.title[:15]}`]({track.uri}) đã bị bỏ qua do không có kết quả "
+                                                           "trong chế độ tìm kiếm thay thế của YouTube.")
                     await self.invoke_np()
                     await asyncio.sleep(13)
                     self.locked = False
                     await self.process_next()
                     return
 
-                temp_id = tracks[0].id
+                alt_track = tracks[0]
+                alt_track.info["extra"] = track.info["extra"]
+                track = alt_track
 
-                track.info["temp_id"] = temp_id
+            elif not track.id:
 
-        elif not track.id:
+                if "&list=" in track.uri and (link_re := YOUTUBE_VIDEO_REG.match(track.uri)):
+                    query = link_re.group()
+                else:
+                    query = track.uri
 
-            if "&list=" in track.uri and (link_re := YOUTUBE_VIDEO_REG.match(track.uri)):
-                query = link_re.group()
-            else:
-                query = track.uri
-
-            try:
-                t = await self.node.get_tracks(query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
-            except Exception as e:
-                traceback.print_exc()
-                if "Video returned by YouTube isn't what was requested" in str(e):
-                    self._new_node_task = self.bot.loop.create_task(self._wait_for_new_node(ignore_node=self.node.identifier))
-                    return
-                kwargs = {}
-                if self.purge_mode == SongRequestPurgeMode.on_message:
-                    kwargs["delete_after"] = 11
                 try:
-                    await self.text_channel.send(
-                        embed=disnake.Embed(
-                            description=f"**Đã có lỗi xảy ra khi cố gắng tìm bài hát:** [{track.title}]({track.uri}) ```py\n{repr(e)}```"
-                        ),
-                    **kwargs)
+                    t = await self.node.get_tracks(query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
+                except Exception as e:
+                    traceback.print_exc()
+                    if "Video returned by YouTube isn't what was requested" in str(e):
+                        self._new_node_task = self.bot.loop.create_task(self._wait_for_new_node(ignore_node=self.node.identifier))
+                        return
+                    kwargs = {}
+                    if self.purge_mode == SongRequestPurgeMode.on_message:
+                        kwargs["delete_after"] = 11
+                    try:
+                        await self.text_channel.send(
+                            embed=disnake.Embed(
+                                description=f"**Xảy ra lỗi khi lấy thông tin âm nhạc:** [{track.title}]({track.uri}) ```py\n{repr(e)}```"
+                            ),
+                        **kwargs)
+                    except:
+                        pass
+                    embed = disnake.Embed(
+                        description=f"**Không lấy được thông tin từ PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
+                                     f"**Máy chủ âm nhạca:** `{self.node.identifier}`",
+                        color=disnake.Colour.red())
+                    await self.report_error(embed, track)
+                    await asyncio.sleep(7)
+                    self.locked = False
+                    await self.process_next()
+                    return
+
+                try:
+                    t = t.tracks
                 except:
                     pass
-                embed = disnake.Embed(
-                    description=f"**Thất bại trog khi lấy thông tin PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
-                                f"**Máy chủ âm nhạc:** `{self.node.identifier}`",
-                    color=disnake.Colour.red())
-                await self.report_error(embed, track)
-                await asyncio.sleep(7)
-                self.locked = False
-                await self.process_next()
-                return
 
-            try:
-                t = t.tracks
-            except:
-                pass
+                if not t:
+                    try:
+                        await self.text_channel.send(
+                            embed=disnake.Embed(
+                                description=f"Bài hát [{track.title}]({track.uri}) không có sẵn...\n"
+                                             "Chuyển sang bài hát tiếp theo...",
+                                color=self.bot.get_color()
+                            ), delete_after=10
+                        )
+                    except:
+                        traceback.print_exc()
 
-            if not t:
-                try:
-                    await self.text_channel.send(
-                        embed=disnake.Embed(
-                            description=f"Bài hát [{track.title}]({track.uri}) không có sẵn...\n"
-                                        "Chuyển sang bài hát tiếp theo...",
-                            color=self.bot.get_color()
-                        ), delete_after=10
-                    )
-                except:
-                    traceback.print_exc()
+                    await asyncio.sleep(10)
 
-                await asyncio.sleep(10)
+                    self.locked = False
 
-                self.locked = False
+                    await self.process_next()
+                    return
 
-                await self.process_next()
-                return
-
-            track.id = t[0].id
-
-        if clear_autoqueue:
-            self.queue_autoplay.clear()
+                track.id = t[0].id
 
         self.last_track = track
 
@@ -1699,7 +1881,7 @@ class LavalinkPlayer(wavelink.Player):
             self.current = track
         else:
             await self.play(track, start=start_position, temp_id=temp_id)
-
+            # TODO: rever essa parte caso adicione função de ativar track loops em músicas da fila
             if self.loop != "current" or force_np or (not self.controller_mode and self.current.track_loops == 0):
 
                 if start_position:
@@ -1785,6 +1967,8 @@ class LavalinkPlayer(wavelink.Player):
             color=self.bot.get_color(self.guild.me)
         )
 
+        embed.set_thumbnail(url=self.bot.user.display_avatar.replace(size=512, static_format="png").url)
+
         if not self.keep_connected:
             embed.description += "\n\nNota:** `Người chơi sẽ tự động tắt` " \
                         f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=self.bot.config['IDLE_TIMEOUT'])).timestamp())}:R> " \
@@ -1848,9 +2032,6 @@ class LavalinkPlayer(wavelink.Player):
 
         if self.keep_connected:
             return
-        
-        if self.autoplay: #! Test fix: bot tự ngắt kể cả khi trong chế độ autoplay
-            return
 
         await asyncio.sleep(self.bot.config["IDLE_TIMEOUT"])
 
@@ -1860,10 +2041,11 @@ class LavalinkPlayer(wavelink.Player):
             if self.static or self.has_thread:
                 self.command_log = msg
             else:
-                embed = disnake.Embed(
-                    description=msg, color=self.bot.get_color(self.guild.me))
-                self.bot.loop.create_task(self.text_channel.send(
-                    embed=embed, delete_after=120, allowed_mentions=self.allowed_mentions))
+                if self.text_channel:
+                    embed = disnake.Embed(
+                        description=msg, color=self.bot.get_color(self.guild.me))
+                    self.bot.loop.create_task(self.text_channel.send(
+                        embed=embed, delete_after=120, allowed_mentions=self.allowed_mentions))
         except:
             traceback.print_exc()
 
@@ -1930,7 +2112,11 @@ class LavalinkPlayer(wavelink.Player):
                     msg = msg[:107] + "..."
 
             if not msg:
-                msg = "Trạng thái: Đang chờ nhạc mới."
+                msg = "Tình trạng: Chờ các bài hát mới."
+            else:
+                emojis = emoji_pattern.findall(msg)
+                for emoji in emojis:
+                    msg = msg.replace(emoji, '')
 
             if not self.guild.me.voice.channel.instance:
                 func = self.guild.me.voice.channel.create_instance
@@ -2014,13 +2200,13 @@ class LavalinkPlayer(wavelink.Player):
         try:
             if self.static:
                 if self.skin_static.startswith("> custom_skin: "):
-                    data = skin_converter(self.custom_skin_static_data[self.skin_static[15:]], player=self)
+                    data = skin_converter(self.custom_skin_static_data[self.skin_static[15:]], player=self, guild=self.guild)
                 else:
                     data = self.bot.player_static_skins[self.skin_static].load(self)
 
             else:
                 if self.skin.startswith("> custom_skin: "):
-                    data = skin_converter(self.custom_skin_data[self.skin[15:]], player=self)
+                    data = skin_converter(self.custom_skin_data[self.skin[15:]], player=self, guild=self.guild)
                 else:
                     data = self.bot.player_skins[self.skin].load(self)
         except OverflowError:
@@ -2079,7 +2265,12 @@ class LavalinkPlayer(wavelink.Player):
 
         else:
 
+            # nenhum controle de botão foi definido na skin (será usado os botões padrões).
             if data.get("components") is None:
+
+                # Aviso: Não modifique os components abaixo, prefira copiar uma das skins da pasta utils -> music -> skins
+                # e deixá-la com outro nome (sem acentos, espaços, caracteres especiais) e modifique-as a seu gosto.
+                # Caso queira deixar uma skin customizada por padrão adicione/modifique a config DEFAULT_SKIN="tuaskin"
 
                 data["components"] = [
                     disnake.ui.Button(
@@ -2092,7 +2283,7 @@ class LavalinkPlayer(wavelink.Player):
                         emoji="⏭️", custom_id=PlayerControls.skip),
                     disnake.ui.Button(
                         emoji="<:music_queue:703761160679194734>", custom_id=PlayerControls.queue,
-                        disabled=not self.queue),
+                        disabled=not (self.queue or self.queue_autoplay)),
                     disnake.ui.Select(
                         placeholder="Mais opções:",
                         custom_id="musicplayer_dropdown_inter",
@@ -2178,12 +2369,11 @@ class LavalinkPlayer(wavelink.Player):
                     )
 
                 if isinstance(self.last_channel, disnake.VoiceChannel):
-                    txt = "Desativar" if self.stage_title_event else "Ativar"
                     data["components"][5].options.append(
                         disnake.SelectOption(
-                            label=f"{txt} status automático", emoji="📢",
-                            value=PlayerControls.stage_announce,
-                            description=f"{txt} o status automático do canal de voz."
+                            label="Status automático", emoji="📢",
+                            value=PlayerControls.set_voice_status,
+                            description="Configurar o status automático do canal de voz."
                         )
                     )
 
@@ -2205,10 +2395,11 @@ class LavalinkPlayer(wavelink.Player):
                     else:
                         await interaction.response.edit_message(allowed_mentions=self.allowed_mentions,
                                                                 **data)
+                    self.updating = False
                 except:
                     traceback.print_exc()
-                self.updating = False
-                self.start_message_updater_task()
+                else:
+                    self.start_message_updater_task()
                 return
 
             else:
@@ -2365,6 +2556,11 @@ class LavalinkPlayer(wavelink.Player):
         self.played.clear()
 
         try:
+            self.reconnect_voice_channel_task.cancel()
+        except:
+            pass
+
+        try:
             self.members_timeout_task.cancel()
         except:
             pass
@@ -2512,7 +2708,12 @@ class LavalinkPlayer(wavelink.Player):
                 except AttributeError:
                     return
 
-                self.set_command_log()
+                if not self.last_channel:
+                    await asyncio.sleep(2)
+                    continue
+
+                if [m for m in self.last_channel.members if not m.bot and not (m.voice.deaf or m.voice.self_deaf)]:
+                    return
 
                 try:
                     await self.track_end()
@@ -2546,37 +2747,39 @@ class LavalinkPlayer(wavelink.Player):
         if track.id:
             return
 
+        check_duration = False
+
         try:
 
             exceptions = []
+            tracks = []
 
-            try:
-                to_search = track.info["search_uri"]
-                check_duration = False
-            except KeyError:
-                to_search = f"{self.bot.config['PARTIALTRACK_SEARCH_PROVIDER']}:" + (f"\"{track.info['isrc']}\"" if track.info.get("isrc") else f"{track.single_title.replace(' - ', ' ')} - {track.authors_string}")
-                check_duration = True
+            if track.info["sourceName"] == "http":
+                search_queries = [track.uri or track.search_uri]
+            else:
+                if track.info["sourceName"] in self.node.info.get("sourceManagers", []):
+                    search_queries = [track.uri]
+                else:
+                    search_queries = []
+                    for sp in self.node.partial_providers:
+                        if "{isrc}" in sp:
+                            if isrc:=track.info.get('isrc'):
+                                search_queries.append(sp.replace("{isrc}", isrc))
+                            continue
+                        search_queries.append(sp.replace("{title}", track.single_title).replace("{author}", ", ".join(track.authors)))
 
-            try:
-                tracks = (await self.node.get_tracks(to_search, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist))
-            except wavelink.TrackNotFound as e:
-                exceptions.append(e)
-                tracks = []
+            for query in search_queries:
 
-            if not tracks and self.bot.config['PARTIALTRACK_SEARCH_PROVIDER'] not in ("ytsearch", "ytmsearch", "scsearch"):
-
-                if track.info.get("isrc"):
-                    try:
-                        tracks = await self.node.get_tracks(f"ytsearch:\"{track.info['isrc']}\"",track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist)
-                    except Exception as e:
-                        exceptions.append(e)
+                try:
+                    tracks = (await self.node.get_tracks(query, track_cls=LavalinkTrack, playlist_cls=LavalinkPlaylist))
+                except wavelink.TrackNotFound as e:
+                    exceptions.append(e)
+                    continue
 
                 if not tracks:
-                    try:
-                        tracks = await self.node.get_tracks(
-                            f"ytsearch:{track.single_title.replace(' - ', ' ')} - {track.authors_string}")
-                    except Exception as e:
-                        exceptions.append(e)
+                    continue
+
+                break
 
             try:
                 tracks = tracks.tracks
@@ -2585,7 +2788,7 @@ class LavalinkPlayer(wavelink.Player):
 
             if not tracks:
                 if exceptions:
-                    print("Không xử lý được bài hát:\n" + "\n".join(repr(e) for e in exceptions))
+                    print("Không giải quyết được PartialTrack:\n" + "\n".join(repr(e) for e in exceptions))
                 return
 
             selected_track = None
@@ -2607,14 +2810,15 @@ class LavalinkPlayer(wavelink.Player):
 
             track.id = selected_track.id
             track.info["length"] = selected_track.duration
+            track.info["sourceNameOrig"] = selected_track.info["sourceName"]
 
         except Exception as e:
             traceback.print_exc()
             embed = disnake.Embed(
-                description=f"**Không lấy được thông tin PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
+                description=f"**Không lấy được thông tin từ PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
                              f"**Máy chủ âm nhạc:** `{self.node.identifier}`",
                 color=disnake.Colour.red())
-            await self.send_track_error(embed, track)
+            await self.report_error(embed, track)
             return
 
         return
@@ -2628,8 +2832,7 @@ class LavalinkPlayer(wavelink.Player):
         except:
             pass
 
-        original_log = self.command_log
-        original_log_emoji = self.command_log_emoji
+        original_identifier = str(self.node.identifier)
 
         self.set_command_log(
             txt or "Không có máy chủ âm nhạc có sẵn. Tôi sẽ thực hiện một số nỗ lực để kết nối với máy chủ âm nhạc mới.",
@@ -2640,18 +2843,31 @@ class LavalinkPlayer(wavelink.Player):
         while True:
 
             nodes = sorted([n for n in self.bot.music.nodes.values() if n.is_available and n.identifier != ignore_node],
-                              key=lambda n: n.stats.players)
+                              key=lambda n: len(n.players))
             if not nodes:
                 await asyncio.sleep(5)
                 continue
 
             node = nodes[0]
 
-            self.native_yt = True           
+            self.native_yt = True
 
             try:
-                await self.change_node(node.identifier)
-                self.locked = False
+                self.node.players[self.guild_id]
+            except KeyError:
+                return
+
+            try:
+                if self.current and not self.current.id:
+                    self.queue.appendleft(self.current)
+                    self.current = None
+                    self.locked = False
+                    if self.guild.me.voice and self._voice_state:
+                        await self._dispatch_voice_update()
+                    await self.process_next(self.position)
+                else:
+                    await self.change_node(node.identifier)
+                    self.locked = False
             except:
                 traceback.print_exc()
                 await asyncio.sleep(5)
@@ -2666,12 +2882,26 @@ class LavalinkPlayer(wavelink.Player):
                     return
                 await self.connect(self.last_channel.id)
 
-            self.set_command_log(emoji=original_log_emoji, text=original_log)
-
             try:
                 if self.auto_pause:
+                    self.set_command_log(
+                        emoji="🪫",
+                        text="Trình phát đang ở chế độ **[tiết kiệm tài nguyên]** (chế độ này sẽ tự động tắt khi "
+                              f"một thành viên tham gia kênh <#{self.channel_id}>)."
+                    )
+                    try:
+                        self.auto_skip_track_task.cancel()
+                    except:
+                        pass
                     self.auto_skip_track_task = self.bot.loop.create_task(self.auto_skip_track())
                 else:
+                    if original_identifier != node.identifier:
+                        txt = f"Trình phát đã được chuyển đến máy chủ âm nhạc **{node.identifier}**."
+                    else:
+                        txt = f"Máy nghe nhạc đã được kết nối với máy chủ âm nhạc **{self.node.identifier}**"
+
+                    self.set_command_log(emoji="📶", text=txt)
+
                     await self.invoke_np(force=True)
             except:
                 traceback.print_exc()
@@ -2758,6 +2988,7 @@ class LavalinkPlayer(wavelink.Player):
                 "bot_id": self.bot.user.id,
                 "bot_name": str(self.bot.user),
                 "thumb": thumb,
+                "guild": self.guild.name,
                 "auth_enabled": self.bot.config["ENABLE_RPC_AUTH"],
                 "listen_along_invite": self.listen_along_invite
             }

@@ -1,6 +1,4 @@
 git+https://github.com/DisnakeDev/disnake.git@2919c6177aee6bb33ce61260e7213fe0ec6769e9
-disnake[voice]
-python-ffmpeg
 python-dotenv
 user_agent
 requests>=2.31.0
@@ -13,11 +11,12 @@ aiofiles
 disnake-jishaku
 packaging
 aiosqlite
-yt-dlp>=2023.12.30
+yt-dlp>=2024.04.09
 tornado
 emoji
 spotipy
 urllib3>=2.1.0
+async-timeout
 validators
 colorama
 openai==0.28.1
@@ -28,3 +27,5 @@ pymongo
 pytz
 google-generativeai
 gTTS
+disnake[voice]
+python-ffmpeg

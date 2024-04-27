@@ -26,7 +26,7 @@ def download_file(url, filename):
     else:
         total_txt = f"{total_size / 1024:.2f} KB"
 
-    with open(filename, 'wb') as f:
+    with open(f"{filename}.tmp", 'wb') as f:
 
         for data in r.iter_content(chunk_size=2500*1024):
             f.write(data)
@@ -45,6 +45,8 @@ def download_file(url, filename):
                 print(f"Tập tin tải về {filename} {current_progress}% kết thúc ({download_speed:.2f} {speed_txt} / {total_txt})")
 
     r.close()
+
+    os.rename(f"{filename}.tmp", filename)
 
     return True
 

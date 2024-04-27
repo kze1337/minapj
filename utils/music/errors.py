@@ -65,6 +65,10 @@ class NotRequester(commands.CheckFailure):
     pass
 
 
+class YoutubeSourceDisabled(commands.CheckFailure):
+    pass
+
+
 def parse_error(
         ctx: Union[disnake.ApplicationCommandInteraction, commands.Context, disnake.MessageInteraction],
         error: Exception
@@ -129,10 +133,9 @@ def parse_error(
 
             prefix = ctx.prefix if str(ctx.me.id) not in ctx.prefix else f"@{ctx.me.display_name} "
 
-        error_txt = "### Bạn đã sử dụng lệnh không chính xác.\n" \
-                    f'📘 **⠂Cách sử dụng:** ```\n{ctx.command.usage.replace("{prefix}", prefix).replace("{cmd}", ctx.command.name).replace("{parent}", ctx.command.full_parent_name)}```\n' \
-                    f"⚠️ **⠂Lưu ý khi sử dụng đối số trong lệnh:** ```\n" \
-                    f"[] = Bắt buộc | <> = Không bắt buộc```\n"
+            error_txt += f'📘 **⠂Cách sử dụng:** ```\n{ctx.command.usage.replace("{prefix}", prefix).replace("{cmd}", ctx.command.name).replace("{parent}", ctx.command.full_parent_name)}```\n' \
+                        f"⚠️ **⠂Lưu ý về việc sử dụng các đối số trong lệnh:** ```\n" \
+                        f"[] = Bắt buộc | <> = Không bắt buộc```\n"
 
     elif isinstance(error, MissingSpotifyClient):
         error_txt = "**Liên kết Spotify không được hỗ trợ tại thời điểm này.**"
@@ -171,7 +174,7 @@ def parse_error(
         ]
 
     elif isinstance(error, commands.MaxConcurrencyReached):
-        txt = f"{error.number} lần " if error.number > 1 else ''
+        txt = f"{error.number} vezes " if error.number > 1 else ''
         txt = {
             commands.BucketType.member: f"Bạn đã bao giờ sử dụng lệnh này {txt} trên máy chủ chưa",
             commands.BucketType.guild: f"lệnh này đã được sử dụng {txt} trên máy chủ",
@@ -186,6 +189,10 @@ def parse_error(
 
     elif isinstance(error, TrackNotFound):
         error_txt = "**Không có kết quả cho tìm kiếm của bạn...**"
+
+    elif isinstance(error, YoutubeSourceDisabled):
+        error_txt = "Hỗ trợ cho các liên kết/tìm kiếm trên YouTube bị vô hiệu hóa do chính YouTube đã tăng cường các biện pháp " \
+                      "ngăn các liên kết yt hoạt động đúng cách. Nếu muốn xem bài đăng trên YouTube về vấn đề này, bạn có thể [nhấp vào đây](<https://support.google.com/youtube/thread/269521462/enforcement-on-third-party-apps?hl=en>)."
 
     if isinstance(error, ServerSelectionTimeoutError) and os.environ.get("REPL_SLUG"):
         error_txt = "Đã phát hiện lỗi dns trong repl.it khiến tôi không thể kết nối với cơ sở dữ liệu của mình" \
@@ -206,12 +213,6 @@ def parse_error(
         elif "not made this video available in your country" in wave_error.lower() or \
                 "who has blocked it in your country on copyright grounds" in wave_error.lower():
             error_txt = "**Nội dung của liên kết này không có sẵn trong khu vực nơi tôi đang làm việc...**"
-        elif "Something went wrong when looking up the track" in wave_error:
-            error_txt = "**Không thể tìm thấy bài hát được chỉ định...**,\n **có thể do lỗi của máy chủ nhạc.**"
-        elif wave_error.startswith("This video is no longer available due to a copyright claim by"):
-            error_txt = "**Video này không còn khả dụng do một khiếu nại bản quyền bởi** " \
-                        f"**{wave_error.split('by')[1].split('.')[0].strip()}**."
-
 
     if not error_txt:
         full_error_txt = "".join(traceback.format_exception(type(error), error, error.__traceback__))
