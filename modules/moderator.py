@@ -177,9 +177,10 @@ class Moderator(commands.Cog):
             return            
 
     @commands.command(name="purge", description="Xóa tin nhắn trong kênh")
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True)
-    async def purge_legacy(self, ctx: Union[CustomContext, disnake.AppCommandInteraction], amount: int):
+    @commands.has_permissions(manage_messages=True, read_message_history=True)
+    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
+    async def purge_legacy(self, ctx: Union[CustomContext, disnake.AppCommandInteraction], amount: int = None):
+        await ctx.message.delete()
         await self.purge.callback(self=self, ctx=ctx, amount=amount)
 
     @commands.slash_command(name="purge", description=f"{desc_prefix}Xóa tin nhắn trong kênh", 
@@ -188,13 +189,18 @@ class Moderator(commands.Cog):
                                                     type=disnake.OptionType.integer, 
                                                     required=True
                                                     )])
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True)
-    async def purge(self, ctx: disnake.AppCommandInteraction, amount: int):
+    @commands.has_permissions(manage_messages=True, read_message_history=True)
+    @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
+    async def purge(self, ctx: disnake.AppCommandInteraction, amount: int = None):
         if ctx.author.bot:
             return
         
+        
         await ctx.response.defer(ephemeral=True)
+
+        if amount is None:
+            await ctx.edit_original_response("Thêm số lượng tin nhắn cần xóa !")
+            return
         if amount > 100:
             await ctx.response.send_message(embed=disnake.Embed(title="❌ Số lượng tin nhắn cần xóa không được lớn hơn 100", color=disnake.Color.red()))
             return
