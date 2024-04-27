@@ -23,8 +23,8 @@ class Tron(commands.Cog):
         button.timeout = 172800
         await ctx.send(embed=embed, view=view)
 
-    @commands.Cog.listener()
-    async def on_button_click(self, interaction: disnake.MessageInteraction):
+    @commands.Cog.listener("on_button_click")
+    async def NitroInteract_btn(self, interaction: disnake.MessageInteraction):
         if interaction.author.bot:
             return
         button_id = interaction.component.custom_id

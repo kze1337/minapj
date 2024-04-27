@@ -392,8 +392,8 @@ class Users(commands.Cog):
 
 #################################################################
 
-    @commands.Cog.listener()
-    async def on_button_click(self, inter: disnake.MessageInteraction):
+    @commands.Cog.listener("on_button_click")
+    async def userInteract_btn(self, inter: disnake.MessageInteraction):
         if inter.author.bot:
             pass
         await inter.response.defer(ephemeral=True)
