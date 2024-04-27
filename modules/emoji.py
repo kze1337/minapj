@@ -9,6 +9,7 @@ import aiohttp
 import re
 from urllib.parse import urlparse
 from utils.client import BotCore
+from asyncio import sleep
 from traceback import print_exc
 
 
@@ -211,6 +212,7 @@ class emoji(commands.Cog):
                     url=emoji["url"]
                 )
                 await ctx.edit_original_response(embed=embed)
+                await sleep(3)
         except Exception as e:
             if "Missing Permissions" in str(e):
                 await ctx.edit_original_response("Tớ thiếu quyền, hãy đảm bảo bạn đã bật 2 quyền sau trong role của tớ :< \n https://i.ibb.co/BNY7NHk/image.png")
