@@ -215,7 +215,7 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @panel_command(aliases=["rd", "recarregar"], description="Tải lại các Extensions", emoji="🔄",
                    alt_name="Nạp lại các Extensions.")
-    async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
+    async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction], *modules):
 
         for m in list(sys.modules):
             if not m.startswith("utils.music.skins."):
