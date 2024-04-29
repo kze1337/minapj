@@ -196,4 +196,5 @@ data_tts/
 local_database
 plugins
 .idea
+.spotipy_cache
 openascode.sh
