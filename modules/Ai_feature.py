@@ -1,11 +1,4 @@
-# import ai module
-import openai
-from openai.error import *
 
-# import google.generativeai as genai
-from rsnchat import RsnChat
-
-#####################################################################
 import time
 
 import traceback
@@ -17,7 +10,8 @@ from disnake import OptionType, OptionChoice
 from utils.client import BotCore
 from utils.GenEMBED import Embed
 from utils.music.checks import can_send_message_check, can_send_message
-
+from utils.ai.chatgpt import chatgpt, create_thread
+from utils.ai.rsnApi import bard, gemini, claude
 import datetime
 
 import os
@@ -27,117 +21,14 @@ from asgiref.sync import sync_to_async
 
 dotenv.load_dotenv()
 
-openai.api_key = os.getenv("OPENAI_SEC")
-
-# genai.configure(api_key=os.environ['GEMINIAPI'])
-
-apiKey = os.environ.get("RSNCHATAPIKEY")
-
-rsnchat = RsnChat(apiKey)
-
-        
 desc_prefix = "⚡[AI]⚡"
 
 model_info = {
     "gpt-3.5-turbo": {"name": "OpenAI GPT-3.5", "icon": "https://cdn.discordapp.com/attachments/1117362735911538768/1131924844603265054/img-1190-removebg-preview.png"},
     "gemini": {"name": "Gemini Ai", "icon": "https://www.gstatic.com/lamda/images/sparkle_resting_v2_darkmode_2bdb7df2724e450073ede.gif"},
-    "bard": {"name": "Bard Ai", "icon": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Google_Bard_logo.svg/1024px-Google_Bard_logo.svg.png"}
+    "bard": {"name": "Bard Ai", "icon": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Google_Bard_logo.svg/1024px-Google_Bard_logo.svg.png"},
+    "claude": {"name": "Claude Ai", "icon": "https://i.ibb.co/wKNmJ8h/claude-ai-icon.png"}
 }
-
-
-chatgpt_cache = {}
-
-def chatgpt(user_content: str, uid = None):
-    global chatgpt_cache
-    
-    if len(chatgpt_cache) > 100: chatgpt_cache = {}
-    
-    if uid:
-        try:
-            messages = chatgpt_cache[uid]
-        except KeyError:
-            create_thread(uid)
-            messages = chatgpt_cache[uid]
-    else:
-        messages = []
-    
-    messages.append({
-        "role": "user",
-        "content": user_content
-    })
-
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        temperature=0.5,
-        max_tokens=768
-    )
-
-    if uid:
-        messages.append({
-            "role": "assistant",
-            "content": response.choices[0].message.content
-        })
-
-    return {
-        "status": "success",
-        "message": response.choices[0].message.content,
-        "response_time": response.response_ms
-    }
-
-def create_thread(uid: int, sys_message: str = None):
-    global chatgpt_cache
-    messages = []
-    if sys_message:
-        messages.append({
-            "role": "system",
-            "content": sys_message
-        })
-    chatgpt_cache[uid] = messages
-
-# async def gemini_ai(user_content: str):
-#     model = genai.GenerativeModel('gemini-pro')
-#     chat = model.start_chat(history=[])
-#     response = chat.send_message(user_content, generation_config=generation_config)
-#     return {
-#         "status": "success",
-#         "message": response.text
-#     }
-
-# async def gemini_ai_vision(user_content: str, picture):
-#     model = genai.GenerativeModel('gemini-pro-vision')
-#     chat = model.start_chat(history=[])
-#     response = model.generate_content([user_content, picture], generation_config=generation_config)
-#     response.resolve(    )
-#     return {
-#         "status": "success",
-#         "message": response.text
-#     }
-
-async def gemini(content: str):
-    
-    resp = rsnchat.gemini(content)
-
-    output = resp.get('message', '')
-
-
-    return {
-        "status": "success", "message": output
-
-    }
-
-async def bard(content: str):
-    
-    resp = rsnchat.bard(content)
-
-    output = resp.get('message', '')
-
-
-    return {
-        "status": "success", "message": output
-
-    }
-
 
 async def check_user(bot, ctx, uid, premium_check = False):
     userinfo = await bot.db_handler.get_userinfo(uid)
@@ -159,8 +50,6 @@ class ChatGPT(commands.Cog):
     def __init__(self, bot: BotCore) -> None:
         self.bot: commands.Bot = bot
         self.debugging = True
-
-        self.error = AuthenticationError or APIError or RateLimitError or Timeout or APIConnectionError or ServiceUnavailableError or TryAgain    
     
     @can_send_message_check()
     @commands.cooldown(1, 20, commands.BucketType.user)
@@ -178,12 +67,12 @@ class ChatGPT(commands.Cog):
             disnake.Option(name="model", description="Model chatbot", type=OptionType.string, required=True, choices=[
                 OptionChoice(name="GPT-3.5", value="gpt-3.5-turbo"),
                 OptionChoice(name="Gemini", value="gemini"),
-                OptionChoice(name="Bard", value="bard")
-                
+                OptionChoice(name="Bard", value="bard"),
+                OptionChoice(name="Claude", value="claude")
             ]),
             disnake.Option(name="private", description="Chế độ riêng tư (Yêu cầu bạn phải bật nếu bạn ở trên kênh chat chính)", type=OptionType.boolean, required=False, choices=[
                 OptionChoice(name="Bật", value=True),
-                OptionChoice(name="Tắt", value=False)
+                
             ])
         ])
     async def chat(self, ctx: disnake.ApplicationCommandInteraction, content: str, model: str, private: bool = False):
@@ -204,14 +93,16 @@ class ChatGPT(commands.Cog):
                         color=disnake.Color.yellow()
                     )
                     await ctx.edit_original_response(embed=embed)
-                    if model == "gpt-3.5-turbo":
+                    if model == "gpt-3.5-turbo": # GPT 3.5 (FREE)
                         response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
-                    if model == "gemini":
+                    if model == "gemini": # GEMINI AI (NEW)
                         response = await gemini(content)
-                    if model == "bard":
+                    if model == "bard": # BARD AI (OLD)
                         response = await bard(content)
+                    if model == "claude": # ClAUDE AI
+                        response = await claude(content)
                     if response["status"] == "error":
-                        await ctx.edit_original_response(embed=Embed.gen_error_embed(response["message"])) # Nahhh
+                        await ctx.edit_original_response(embed=Embed.gen_error_embed(response["message"]))
                         return
                     else:
                         use = await self.bot.db_handler.use(ctx.author.id, model, premium)
