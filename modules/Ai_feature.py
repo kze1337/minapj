@@ -2,7 +2,8 @@
 import openai
 from openai.error import *
 
-import google.generativeai as genai
+# import google.generativeai as genai
+from rsnchat import RsnChat
 
 #####################################################################
 import time
@@ -14,10 +15,8 @@ from disnake.ext import commands
 from disnake import OptionType, OptionChoice
 
 from utils.client import BotCore
-from utils.others import CustomContext
 from utils.GenEMBED import Embed
 from utils.music.checks import can_send_message_check, can_send_message
-from typing import Union
 
 import datetime
 
@@ -30,22 +29,21 @@ dotenv.load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_SEC")
 
-genai.configure(api_key=os.environ['GEMINIAPI'])
+# genai.configure(api_key=os.environ['GEMINIAPI'])
+
+apiKey = os.environ.get("RSNCHATAPIKEY")
+
+rsnchat = RsnChat(apiKey)
+
         
 desc_prefix = "⚡[AI]⚡"
 
 model_info = {
     "gpt-3.5-turbo": {"name": "OpenAI GPT-3.5", "icon": "https://cdn.discordapp.com/attachments/1117362735911538768/1131924844603265054/img-1190-removebg-preview.png"},
     "gemini": {"name": "Gemini Ai", "icon": "https://www.gstatic.com/lamda/images/sparkle_resting_v2_darkmode_2bdb7df2724e450073ede.gif"},
+    "bard": {"name": "Bard Ai", "icon": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Google_Bard_logo.svg/1024px-Google_Bard_logo.svg.png"}
 }
 
-
-generation_config = {
-  "temperature": 1,
-  "top_p": 1,
-  "top_k": 1,
-  "max_output_tokens": 2048,
-}
 
 chatgpt_cache = {}
 
@@ -97,26 +95,48 @@ def create_thread(uid: int, sys_message: str = None):
         })
     chatgpt_cache[uid] = messages
 
-async def gemini_ai(user_content: str):
-    model = genai.GenerativeModel('gemini-pro')
-    chat = model.start_chat(history=[])
-    response = chat.send_message(user_content, generation_config=generation_config)
+# async def gemini_ai(user_content: str):
+#     model = genai.GenerativeModel('gemini-pro')
+#     chat = model.start_chat(history=[])
+#     response = chat.send_message(user_content, generation_config=generation_config)
+#     return {
+#         "status": "success",
+#         "message": response.text
+#     }
+
+# async def gemini_ai_vision(user_content: str, picture):
+#     model = genai.GenerativeModel('gemini-pro-vision')
+#     chat = model.start_chat(history=[])
+#     response = model.generate_content([user_content, picture], generation_config=generation_config)
+#     response.resolve(    )
+#     return {
+#         "status": "success",
+#         "message": response.text
+#     }
+
+async def gemini(content: str):
+    
+    resp = rsnchat.gemini(content)
+
+    output = resp.get('message', '')
+
+
     return {
-        "status": "success",
-        "message": response.text
+        "status": "success", "message": output
+
     }
 
-async def gemini_ai_vision(user_content: str, picture):
-    model = genai.GenerativeModel('gemini-pro-vision')
-    chat = model.start_chat(history=[])
-    response = model.generate_content([user_content, picture], generation_config=generation_config)
-    response.resolve(    )
+async def bard(content: str):
+    
+    resp = rsnchat.bard(content)
+
+    output = resp.get('message', '')
+
+
     return {
-        "status": "success",
-        "message": response.text
+        "status": "success", "message": output
+
     }
-
-
 
 
 async def check_user(bot, ctx, uid, premium_check = False):
@@ -157,7 +177,9 @@ class ChatGPT(commands.Cog):
             disnake.Option(name="content", description="Nội dung chat", type=OptionType.string, required=True),
             disnake.Option(name="model", description="Model chatbot", type=OptionType.string, required=True, choices=[
                 OptionChoice(name="GPT-3.5", value="gpt-3.5-turbo"),
-                OptionChoice(name="Gemini (👑Pro, Thử nghiệm)", value="gemini")
+                OptionChoice(name="Gemini", value="gemini"),
+                OptionChoice(name="Bard", value="bard")
+                
             ]),
             disnake.Option(name="private", description="Chế độ riêng tư (Yêu cầu bạn phải bật nếu bạn ở trên kênh chat chính)", type=OptionType.boolean, required=False, choices=[
                 OptionChoice(name="Bật", value=True),
@@ -185,9 +207,9 @@ class ChatGPT(commands.Cog):
                     if model == "gpt-3.5-turbo":
                         response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
                     if model == "gemini":
-                        # response = await gemini_ai(content)
-                        await ctx.edit_original_response("Hiện tại Model Gemini đang bị vô hiệu hóa do vùng vps đang host không hỗ trợ, vui lòng thử lại sau :<", embed=None)
-                        return
+                        response = await gemini(content)
+                    if model == "bard":
+                        response = await bard(content)
                     if response["status"] == "error":
                         await ctx.edit_original_response(embed=Embed.gen_error_embed(response["message"])) # Nahhh
                         return

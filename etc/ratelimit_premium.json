@@ -1,8 +1,8 @@
 {
-    "gpt-3.5-turbo": 50,
-    "gpt-4": 10,
+    "gpt-3.5-turbo": 1243214,
+    "gpt-4": 0,
     "dalle-2": 5,
-    "gemini": 110,
-    "gemini-pro-vision": 10,
+    "gemini": 2123324,
+    "bard": 1243425,
     "daily": 5
 }

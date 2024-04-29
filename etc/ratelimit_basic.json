@@ -1,5 +1,6 @@
 {
-    "gpt-3.5-turbo": 10,
-    "gemini": 10,
+    "gpt-3.5-turbo": 20000,
+    "gemini": 50000,
+    "bard": 50000,
     "daily": 1
 }
