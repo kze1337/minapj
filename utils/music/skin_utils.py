@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import itertools
+import random
 from copy import deepcopy
 from typing import Optional, TYPE_CHECKING, Union
 
@@ -29,73 +30,62 @@ def track_title_format(
         replace('{track.title}', track_title). \
         replace('{track.url}', track_url). \
         replace('{track.author}', track_author). \
-        replace('{track.duration}', time_format(track_duration) if track_duration else "🔴 Ao vivo"). \
+        replace('{track.duration}', time_format(track_duration)). \
         replace('{track.number}', str(track_number))
 
 
 def replaces(
-    txt: str, info: dict, ctx: disnake.MessageInteraction, player: LavalinkPlayer, queue_text: str, track: dict,
-        guild: disnake.Guild
+    txt: str, info: dict, ctx: disnake.MessageInteraction, player: LavalinkPlayer, queue_text: str, track: dict
 ):
 
     if player:
 
         try:
             if not player.current.autoplay:
-                requester = guild.get_member(player.current.requester)
+                requester = player.guild.get_member(player.current.requester)
                 requester_global_name = requester.global_name
                 requester_display_name = requester.display_name
-                requester_mention = requester.mention
                 requester_avatar = requester.display_avatar.replace(static_format="png", size=512).url
             else:
-                requester_global_name = "Sự giới thiệu"
-                requester_display_name = "Sự giới thiệu"
-                requester_mention = "Sự giới thiệu"
-                requester_avatar = guild.me.display_avatar.replace(static_format="png", size=512).url
+                requester_global_name = "Gợi ý"
+                requester_display_name = "Gợi ý"
+                requester_avatar = player.guild.me.display_avatar.replace(static_format="png", size=512).url
         except:
             requester_global_name = "không xác định..."
             requester_display_name = "không xác định..."
-            requester_mention = f"<@{player.current.requester}>"
             requester_avatar = "https://i.ibb.co/LNpG5TM/unknown.png"
 
         txt = track_title_format(
             track_title=player.current.title,
             track_author=player.current.author,
             track_url=player.current.uri,
-            track_duration=player.current.duration if not player.current.is_stream else 0,
+            track_duration=player.current.duration,
             data=txt
         ). \
             replace('{track.thumb}', player.current.thumb). \
-            replace('{playlist.name}', player.current.playlist_name or "Tôi là một danh sách phát"). \
-            replace('{playlist.url}', player.current.playlist_url or player.controller_link). \
-            replace('{player.loop.mode}', 'Vô hiệu hóa' if not player.loop else 'Âm nhạc hiện tại' if player.loop == "current" else "Fila"). \
-            replace('{player.queue.size}', str(len(player.queue or player.queue_autoplay))). \
+            replace('{playlist.name}', player.current.playlist_name or "Không có"). \
+            replace('{playlist.url}', player.current.playlist_url). \
+            replace('{player.loop.mode}', 'Vô hiệu' if not player.loop else 'Âm nhạc hiện tại' if player.loop == "current" else "Hàng"). \
+            replace('{player.queue.size}', str(len(player.queue))). \
             replace('{player.volume}', str(player.volume)). \
-            replace('{player.autoplay}', "Kích hoạt" if player.autoplay else "Vô Hiệu"). \
-            replace('{player.nightcore}', "Kích hoạt" if player.nightcore else "Vô Hiệu"). \
+            replace('{player.autoplay}', "Kích hoạt" if player.autoplay else "Vô hiệu hóa"). \
+            replace('{player.nightcore}', "Kích hoạt" if player.nightcore else "Vô hiệu hóa"). \
             replace('{player.hint}', player.current_hint). \
             replace('{player.log.text}', player.command_log or "Không đăng ký."). \
             replace('{player.log.emoji}', player.command_log_emoji or ""). \
             replace('{requester.global_name}', requester_global_name). \
             replace('{requester.display_name}', requester_display_name). \
-            replace('{requester.mention}', requester_mention). \
+            replace('{requester.mention}', f'<@{player.current.requester}>'). \
             replace('{requester.avatar}', requester_avatar). \
-            replace('{guild.color}', hex(guild.me.color.value)[2:]). \
-            replace('{guild.icon}', guild.icon.with_static_format("png").url if guild.icon else ""). \
-            replace('{guild.name}', guild.name). \
-            replace('{guild.id}', str(guild.id)). \
-            replace('{queue_format}', queue_text or "Dòng trống...")
+            replace('{guild.color}', hex(player.guild.me.color.value)[2:]). \
+            replace('{guild.icon}', player.guild.icon.with_static_format("png").url if player.guild.icon else ""). \
+            replace('{guild.name}', player.guild.name). \
+            replace('{guild.id}', str(player.guild.id)). \
+            replace('{queue_format}', queue_text or "Không có bài hát.")
 
     else:
 
         queue_max_entries = info.pop("queue_max_entries", 3) or 3
-
-        c = ctx.bot.get_color(guild.me)
-
-        try:
-            color = c.value
-        except AttributeError:
-            color = c
 
         txt = track_title_format(
             track_title=track['title'],
@@ -113,21 +103,21 @@ def replaces(
             replace('{player.autoplay}', "Kích hoạt"). \
             replace('{player.nightcore}', "Kích hoạt"). \
             replace('{player.log.emoji}', "⏭️"). \
-            replace('{player.log.text}', f"{ctx.author} bỏ qua nhạc."). \
+            replace('{player.log.text}', f"{random.choice(ctx.guild.members)} bỏ qua bài hát."). \
             replace('{requester.global_name}', ctx.author.global_name). \
             replace('{requester.display_name}', ctx.author.display_name). \
             replace('{requester.mention}', ctx.author.mention). \
             replace('{requester.avatar}', ctx.author.display_avatar.with_static_format("png").url). \
-            replace('{guild.color}', hex(color)[2:]). \
-            replace('{guild.icon}', guild.icon.with_static_format("png").url if guild.icon else ""). \
-            replace('{guild.name}', guild.name). \
-            replace('{guild.id}', str(guild.id)). \
-            replace('{queue_format}', queue_text or "(Không có bài hát).")
+            replace('{guild.color}', hex(ctx.bot.get_color(ctx.guild.me).value)[2:]). \
+            replace('{guild.icon}', ctx.guild.icon.with_static_format("png").url if ctx.guild.icon else ""). \
+            replace('{guild.name}', ctx.guild.name). \
+            replace('{guild.id}', str(ctx.guild.id)). \
+            replace('{queue_format}', queue_text or "Không có bài hát.")
 
     return txt
 
 
-def skin_converter(info: dict, guild: disnake.Guild, ctx: Union[CustomContext, disnake.ModalInteraction] = None, player: Optional[LavalinkPlayer] = None) -> dict:
+def skin_converter(info: dict, ctx: Union[CustomContext, disnake.ModalInteraction] = None, player: Optional[LavalinkPlayer] = None) -> dict:
 
     info = deepcopy(info)
 
@@ -176,7 +166,7 @@ def skin_converter(info: dict, guild: disnake.Guild, ctx: Union[CustomContext, d
 
     try:
         if info["content"]:
-            info["content"] = replaces(info["content"], info=info, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+            info["content"] = replaces(info["content"], info=info, ctx=ctx, player=player, queue_text=queue_text, track=track)
     except KeyError:
         pass
 
@@ -184,51 +174,51 @@ def skin_converter(info: dict, guild: disnake.Guild, ctx: Union[CustomContext, d
 
         for d in embeds:
             try:
-                d["description"] = replaces(d["description"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["description"] = replaces(d["description"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             try:
-                d["footer"]["text"] = replaces(d["footer"]["text"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["footer"]["text"] = replaces(d["footer"]["text"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             try:
-                d["footer"]["icon_url"] = replaces(d["footer"]["icon_url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["footer"]["icon_url"] = replaces(d["footer"]["icon_url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             try:
-                d["author"]["name"] = replaces(d["author"]["name"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["author"]["name"] = replaces(d["author"]["name"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             try:
-                d["author"]["url"] = replaces(d["author"]["url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["author"]["url"] = replaces(d["author"]["url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             try:
-                d["author"]["icon_url"] = replaces(d["author"]["icon_url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["author"]["icon_url"] = replaces(d["author"]["icon_url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             try:
-                d["image"]["url"] = replaces(d["image"]["url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["image"]["url"] = replaces(d["image"]["url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             try:
-                d["thumbnail"]["url"] = replaces(d["thumbnail"]["url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                d["thumbnail"]["url"] = replaces(d["thumbnail"]["url"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
             except KeyError:
                 pass
 
             for n, f in enumerate(d.get("fields", [])):
-                f["name"] = replaces(f["name"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
-                f["value"] = replaces(f["value"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild)
+                f["name"] = replaces(f["name"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
+                f["value"] = replaces(f["value"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track)
 
             try:
-                d["color"] = int(replaces(d["color"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track, guild=guild), 16)
+                d["color"] = int(replaces(d["color"], info=d, ctx=ctx, player=player, queue_text=queue_text, track=track), 16)
             except (KeyError, AttributeError):
                 pass
 

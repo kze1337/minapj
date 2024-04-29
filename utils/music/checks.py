@@ -8,6 +8,7 @@ from typing import Union, Optional, TYPE_CHECKING
 import disnake
 from disnake.ext import commands
 
+from utils.db import DBModel
 from utils.music.converters import time_format
 from utils.music.errors import NoVoice, NoPlayer, NoSource, NotRequester, NotDJorStaff, \
     GenericError, MissingVoicePerms, DiffVoiceChannel, PoolException
@@ -71,8 +72,7 @@ def check_forum(inter, bot):
         else:
             raise PoolException()
 
-async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool = True, return_first=False,
-                          bypass_prefix=False):
+async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool = True, return_first=False):
 
     try:
         inter.music_bot
@@ -87,7 +87,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     elif isinstance(inter, disnake.ModalInteraction):
         return
 
-    if len(inter.bot.pool.get_guild_bots(inter.guild_id)) < 2 and inter.guild:
+    if len(inter.bot.pool.bots) < 2:
         try:
             inter.music_bot = inter.bot
             inter.music_guild = inter.guild
@@ -108,7 +108,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
 
     mention_prefixed = False
 
-    if isinstance(inter, CustomContext) and not bypass_prefix:
+    if isinstance(inter, CustomContext):
 
         is_forum = check_forum(inter, inter.bot)
 
@@ -179,7 +179,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
 
     voice_channels = []
 
-    for bot in sorted(inter.bot.pool.get_guild_bots(inter.guild_id), key=lambda b: b.identifier):
+    for bot in sorted(inter.bot.pool.bots, key=lambda b: b.identifier):
 
         if not bot.bot_ready:
             continue
@@ -264,7 +264,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     if free_bot:
         inter.music_bot, inter.music_guild = free_bot.pop(0)
 
-        if isinstance(inter, CustomContext) and not mention_prefixed and not bypass_prefix and inter.music_bot.user.id != inter.bot.user.id:
+        if isinstance(inter, CustomContext) and not mention_prefixed and inter.music_bot.user.id != inter.bot.user.id:
             try:
                 await inter.music_bot.wait_for(
                     "pool_payload_ready", timeout=10,
@@ -290,7 +290,7 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
     extra_bots_counter = 0
     bot_in_guild = False
 
-    for bot in inter.bot.pool.get_guild_bots(inter.guild_id):
+    for bot in inter.bot.pool.bots:
 
         try:
             if not bot.appinfo.bot_public and not await bot.is_owner(inter.author):
@@ -313,9 +313,14 @@ async def check_pool_bots(inter, only_voiced: bool = False, check_player: bool =
 
         msg = "**Không có bot âm nhạc tương thích trên máy chủ...**"
 
+        for b in inter.bot.pool.bots:
+
+            if str(b.user.id) in inter.bot.config["INTERACTION_BOTS"]:
+                continue
+
         if extra_bots_counter:
             msg += f"\n\nBạn sẽ phải thêm ít nhất một bot tương thích bằng cách nhấp vào nút bên dưới:"
-            components = [disnake.ui.Button(custom_id="bot_invite", label=f"Thêm {'các'[:extra_bots_counter^1]} bot.")]
+            components = [disnake.ui.Button(custom_id="bot_invite", label="Thêm (các) bot.")]
 
     else:
 
@@ -535,8 +540,8 @@ def check_stage_topic():
 
         if player.stage_title_event and (time_:=int((disnake.utils.utcnow() - player.start_time).total_seconds())) < time_limit and not (await bot.is_owner(inter.author)):
             raise GenericError(
-                f"**Bạn sẽ phải đợi {time_format((time_limit - time_) * 1000, use_names=True)} để sử dụng chức năng này "
-                 f"với thông báo sân khấu tự động đang hoạt động...**"
+                f"**Bạn sẽ phải đợi {time_format((120 - time_) * 1000, use_names=True)} Để sử dụng chức năng này "
+                f"với thông báo sân khấu tự động...**"
             )
 
         return True
@@ -555,7 +560,7 @@ def user_cooldown(rate: int, per: int):
 
 #######################################################################
 
-async def check_player_perm(inter, bot: BotCore, channel, guild_data: dict = None):
+async def check_player_perm(inter, bot: BotCore, channel):
 
     try:
         guild_id = inter.guild_id
@@ -567,43 +572,36 @@ async def check_player_perm(inter, bot: BotCore, channel, guild_data: dict = Non
     except KeyError:
         return True
 
-    try:
-        vc = player.guild.me.voice.channel
-    except AttributeError:
-        vc = player.last_channel
+    if inter.author.id == player.player_creator or inter.author.id in player.dj:
+        return True
 
     if inter.author.guild_permissions.manage_channels:
         return True
 
-    if player.keep_connected and not (await bot.is_owner(inter.author)):
-        raise GenericError("Chỉ những thành viên có quyền **quản lý kênh**"
-                            "bạn có thể sử dụng lệnh/nút này với **chế độ hoạt động 24/7**...")
-
-    if inter.author.id == player.player_creator or inter.author.id in player.dj:
-        return True
-
-    try:
-        if vc.permissions_for(inter.author).move_members:
-            return True
-    except AttributeError:
-        pass
+    if player.keep_connected:
+        raise GenericError(f"**Lỗi!** Chỉ thành viên có quyền **quản lý máy chủ** "
+                            "có thể sử dụng lệnh/nút này khi chế độ **24/7 đang hoạt động**...")
 
     user_roles = [r.id for r in inter.author.roles]
 
-    if not guild_data:
-        inter, guild_data = await get_inter_guild_data(inter, bot)
+    inter, guild_data = await get_inter_guild_data(inter, bot)
 
     if [r for r in guild_data['djroles'] if int(r) in user_roles]:
         return True
 
     if player.restrict_mode:
-        raise GenericError("Chỉ DJ hoặc thành viên mới được phép **di chuyển thành viên**"
-                            "bạn có thể sử dụng lệnh/nút này với **chế độ hạn chế đang hoạt động**...")
+        raise GenericError(f"**Lỗi!** Chỉ DJ hoặc thành viên có quyền **quản lý máy chủ**"
+                            "có thể sử dụng lệnh/nút này khi **chế độ hạn chế đang hoạt động**...")
+
+    try:
+        vc = player.guild.me.voice.channel
+    except AttributeError:
+        vc = player.last_channel
 
     if not vc and inter.author.voice:
         player.dj.add(inter.author.id)
 
-    elif not [m for m in vc.members if not m.bot and (vc.permissions_for(m).move_members or (m.id in player.dj) or m.id == player.player_creator)]:
+    elif not [m for m in vc.members if not m.bot and (m.guild_permissions.manage_channels or (m.id in player.dj) or m.id == player.player_creator)]:
         player.dj.add(inter.author.id)
         await channel.send(embed=disnake.Embed(
             description=f"{inter.author.mention} đã được thêm vào danh sách DJ vì không có ai trên kênh <#{vc.id}>.",
@@ -660,7 +658,7 @@ def can_connect(
             raise GenericError(f"**Kênh {channel.mention} nó đầy rồi!**")
 
     if bot:
-        for b in bot.pool.get_guild_bots(channel.guild.id):
+        for b in bot.pool.bots:
             if b == bot:
                 continue
             if b.bot_ready and b.user.id in channel.voice_states:

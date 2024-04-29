@@ -130,7 +130,6 @@ class Track:
         self.id = id_
         self.info = info
         self.query = query
-        self.info["pluginInfo"] = kwargs.get("pluginInfo", {})
 
         self.title = info.get('title', '')[:97]
         self.identifier = info.get('identifier', '')
@@ -204,13 +203,13 @@ class Player:
 
         self._voice_state = {}
 
+        self._temp_data = {}
+
         self.volume = 100
         self.paused = False
         self.current = None
         self._equalizer = Equalizer.flat()
         self.channel_id = None
-
-        self.auto_pause = False
 
     @property
     def equalizer(self):
@@ -311,6 +310,10 @@ class Player:
                 traceback.print_exc()
                 return
 
+            if self._temp_data:
+                data.update(self._temp_data.copy())
+                self._temp_data.clear()
+
             await self.node.update_player(self.guild_id, data=data)
 
     async def hook(self, event) -> None:
@@ -393,7 +396,7 @@ class Player:
         self.channel_id = None
         await self._get_shard_socket(guild.shard_id).voice_state(self.guild_id, None)
 
-    async def play(self, track: Track, *, replace: bool = True, start: int = 0, end: int = 0, **kwargs) -> None:
+    async def play(self, track: Track, *, replace: bool = True, start: int = 0, end: int = 0, temp_id: str = None, **kwargs) -> None:
         """|coro|
 
         Play a WaveLink Track.
@@ -425,7 +428,7 @@ class Player:
             payload = {
                 'op': 'play',
                 'guildId': str(self.guild_id),
-                'track': track.id,
+                'track': temp_id or track.id,
                 'noReplace': not replace,
                 'startTime': start,
             }
@@ -451,7 +454,7 @@ class Player:
                 pause = self.paused
 
             payload = {
-                "encodedTrack": track.id,
+                "encodedTrack": temp_id or track.id,
                 "volume": vol,
                 "position": int(start),
                 "paused": pause,
@@ -654,7 +657,7 @@ class Player:
         self.node = node
         self.node.players[int(self.guild_id)] = self
 
-        if self.current and not self.auto_pause:
+        if self.current:
             if self.node.version == 3:
                 await self.node._send(op='play', guildId=str(self.guild_id), track=self.current.id, startTime=int(self.position))
                 if self.paused:

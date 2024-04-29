@@ -284,7 +284,6 @@ class WSClient:
     def __init__(self, url: str, pool: BotPool):
         self.url: str = url
         self.pool = pool
-        self.all_bots = None
         self.connection = None
         self.backoff: int = 7
         self.data: dict = {}
@@ -302,9 +301,6 @@ class WSClient:
 
         print("RPC client conectado, sincronizando rpc dos bots...")
 
-        if not self.all_bots:
-            self.all_bots = self.pool.get_all_bots()
-
         self.connect_task = [asyncio.create_task(self.connect_bot_rpc())]
 
     @property
@@ -313,21 +309,21 @@ class WSClient:
 
     async def connect_bot_rpc(self):
 
-        bot_ids = set()
+        bot_ids = []
 
-        for bot in self.all_bots:
-            await bot.wait_until_ready()
-            bot_ids.add(bot.user.id)
+        for bot in self.pool.bots:
 
-        if not bot_ids:
-            print("Conexão com servidor RPC ignorado: Lista de bots vazia...")
-            return
+            try:
+                bot_ids.append(bot.user.id)
+            except:
+                await bot.wait_until_ready()
+                bot_ids.append(bot.user.id)
 
-        await self.send({"user_ids": list(bot_ids), "bot": True, "auth_enabled": self.pool.config["ENABLE_RPC_AUTH"]})
+        await self.send({"user_ids": bot_ids, "bot": True, "auth_enabled": self.pool.config["ENABLE_RPC_AUTH"]})
 
         await asyncio.sleep(1)
 
-        for bot in self.all_bots:
+        for bot in self.pool.bots:
             for player in bot.music.players.values():
 
                 if not player.guild.me.voice:
@@ -370,9 +366,9 @@ class WSClient:
 
             except Exception as e:
                 if isinstance(e, aiohttp.WSServerHandshakeError):
-                    print(f"Falha ao conectar no servidor RPC, tentando novamente em {(b:=int(self.backoff))} segundo{'s'[:b^1]}.")
+                    print(f"Falha ao conectar no servidor RPC, tentando novamente em {int(self.backoff)} segundo(s).")
                 else:
-                    print(f"Conexão com servidor RPC perdida - Reconectando em {(b:=int(self.backoff))} segundo{'s'[:b^1]}.")
+                    print(f"Conexão com servidor RPC perdida - Reconectando em {int(self.backoff)} segundo(s).")
 
                 await asyncio.sleep(self.backoff)
                 self.backoff *= 2.5
@@ -400,7 +396,7 @@ class WSClient:
 
             if op == "rpc_update":
 
-                for bot in self.all_bots:
+                for bot in self.pool.bots:
                     for player in bot.music.players.values():
                         if not player.guild.me.voice:
                             continue

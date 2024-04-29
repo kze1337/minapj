@@ -17,8 +17,7 @@ from disnake.ext import commands
 import wavelink
 from utils.client import BotCore
 from utils.music.checks import can_connect, can_send_message
-from utils.music.filters import AudioFilter
-from utils.music.models import LavalinkPlayer
+from utils.music.models import LavalinkPlayer, LavalinkTrack, PartialTrack, PartialPlaylist, LavalinkPlaylist
 from utils.others import SongRequestPurgeMode, send_idle_embed, CustomContext
 
 
@@ -57,14 +56,14 @@ class PlayerSession(commands.Cog):
         await self.save_info(payload.player)
 
     @commands.is_owner()
-    @commands.command(hidden=True, description="Lưu thông tin từ người chơi trên cơ sở dữ liệu ngay lập tức.", aliases=["svplayers"])
+    @commands.command(hidden=True, description="Lưu thông tin người chơi vào cơ sở dữ liệu ngay lập tức.", aliases=["svplayers"])
     async def saveplayers(self, ctx: CustomContext):
 
         await ctx.defer()
 
         player_count = 0
 
-        for bot in self.bot.pool.get_all_bots():
+        for bot in self.bot.pool.bots:
             for player in bot.music.players.values():
                 try:
                     await player.process_save_queue()
@@ -114,10 +113,6 @@ class PlayerSession(commands.Cog):
             player.current.info["id"] = player.current.id
             if player.current.playlist_name:
                 player.current.info["playlist"] = {"name": player.current.playlist_name, "url": player.current.playlist_url}
-                try:
-                    player.current.info["playlist"]["thumb"] = player.current.playlist.thumb
-                except:
-                    pass
             tracks.append(player.current.info)
 
         for t in player.queue:
@@ -183,12 +178,6 @@ class PlayerSession(commands.Cog):
             "time": disnake.utils.utcnow(),
         }
 
-        try:
-            data["last_voice_channel_id"] = player._last_channel_id
-        except AttributeError:
-            player._last_channel_id = vc_id
-            data["last_voice_channel_id"] = vc_id
-
         if player.static:
             if player.skin_static.startswith("> custom_skin: "):
                 custom_skin = player.skin_static[15:]
@@ -202,6 +191,63 @@ class PlayerSession(commands.Cog):
             await self.save_session(player, data=data)
         except:
             traceback.print_exc()
+
+    def process_track_cls(self, data: list, playlists: dict = None):
+
+        if not playlists:
+            playlists = {}
+
+        tracks = []
+
+        for info in data:
+
+            if info["sourceName"] == "spotify":
+
+                if playlist := info.pop("playlist", None):
+
+                    try:
+                        playlist = playlists[playlist["url"]]
+                    except KeyError:
+                        playlist_cls = PartialPlaylist(
+                            {
+                                'loadType': 'PLAYLIST_LOADED',
+                                'playlistInfo': {
+                                    'name': playlist["name"],
+                                    'selectedTrack': -1
+                                },
+                                'tracks': []
+                            }, url=playlist["url"]
+                        )
+                        playlists[playlist["url"]] = playlist_cls
+                        playlist = playlist_cls
+
+                t = PartialTrack(info=info, playlist=playlist)
+
+            else:
+
+                if playlist := info.pop("playlist", None):
+
+                    try:
+                        playlist = playlists[playlist["url"]]
+                    except KeyError:
+                        playlist_cls = LavalinkPlaylist(
+                            {
+                                'loadType': 'PLAYLIST_LOADED',
+                                'playlistInfo': {
+                                    'name': playlist["name"],
+                                    'selectedTrack': -1
+                                },
+                                'tracks': []
+                            }, url=playlist["url"]
+                        )
+                        playlists[playlist["url"]] = playlist_cls
+                        playlist = playlist_cls
+
+                t = LavalinkTrack(id_=info.get("id", ""), info=info, playlist=playlist, requester=info["extra"]["requester"])
+
+            tracks.append(t)
+
+        return tracks, playlists
 
     async def resume_players(self):
 
@@ -261,183 +307,89 @@ class PlayerSession(commands.Cog):
                     await asyncio.sleep(1)
 
         except Exception:
-            print(f"{self.bot.user} - Falha ao retomar player {data['_id']}:\n{traceback.format_exc()}")
+            print(f"{self.bot.user} - Không tiếp tục tiếp tục người chơi {data['_id']}:\n{traceback.format_exc()}")
 
         self.bot.player_resumed = True
-
-    async def update_player(
-            self,
-            player: LavalinkPlayer,
-            voice_channel: Union[disnake.VoiceChannel, disnake.StageChannel],
-            pause: bool,
-            position: int,
-            has_members = None
-    ):
-
-        if not player.current:
-            try:
-                player.current = player.queue.popleft()
-            except:
-                pass
-
-            if not player.current and player.autoplay:
-                try:
-                    player.current = await player.get_autoqueue_tracks()
-                except:
-                    traceback.print_exc()
-
-
-        data = {
-            "volume": player.volume,
-            "filters": player.filters,
-        }
-
-        await player.connect(voice_channel.id)
-        await self.voice_check(voice_channel, position)
-
-        try:
-            track_id = player.current.info.get("temp_id") or player.current.id
-        except:
-            track_id = None
-
-        if track_id and has_members:
-            data.update(
-                {
-                    "encodedTrack": track_id,
-                    "position": position,
-                    "paused": pause,
-                }
-            )
-            await player.node.update_player(player.guild.id, data=data)
-        else:
-            await player.node.update_player(player.guild.id, data=data)
-            await player.process_next()
-
-    async def voice_check(self, voice_channel: Union[disnake.VoiceChannel, disnake.StageChannel], position: int = 0):
-
-        wait_counter = 30
-
-        guild = voice_channel.guild
-
-        while wait_counter > 1:
-            if not guild.me.voice:
-                wait_counter -= 1
-                await asyncio.sleep(1)
-                continue
-            try:
-                player = self.bot.music.players[voice_channel.guild.id]
-                player._last_channel = voice_channel
-                if player.node.version > 3:
-                    player.last_position = position
-            except KeyError:
-                pass
-            break
-
-        if not wait_counter:
-            print(f"{self.bot.user} - {guild.name}: Người chơi bị bỏ qua do sự chậm trễ trong việc kết nối với kênh thoại.")
-            return
-
-        if isinstance(voice_channel, disnake.StageChannel) and \
-                voice_channel.permissions_for(guild.me).mute_members:
-
-            await asyncio.sleep(3)
-
-            try:
-                await guild.me.edit(suppress=False)
-            except Exception as e:
-                print(f"{self.bot.user} - Thất bại khi nói trên giai đoạn máy chủ {guild.name}. Erro: {repr(e)}")
 
     async def resume_player(self, data: dict, hints: list = None):
 
         if hints is None:
             hints = []
 
-        voice_channel = self.bot.get_channel(data["voice_channel"])
-
         try:
             guild = self.bot.get_guild(data["_id"])
 
-            if not (db_date := data.get("time")) or (disnake.utils.utcnow() - db_date).total_seconds() > 172800:
-                print(f"{self.bot.user} - Làm sạch thông tin người chơi: {data['_id']}")
-                await self.delete_data(data["_id"])
-                return
+            if self.bot.music.players.get(int(data["_id"])):
+                    print(f"{self.bot.user} - Bỏ qua người chơi hiện có: {data['_id']}")
+                    return
 
             if not guild:
-                print(f"{self.bot.user} - Người chơi bị bỏ qua: {data['_id']} | Máy chủ không tồn tại...")
-                return
+                    print(f"{self.bot.user} - Người chơi bị bỏ qua: {data['_id']} | Máy chủ không tồn tại...")
+                    if (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
+                        await self.delete_data(data["_id"])
+                    return
 
-            try:
-                player = self.bot.music.players[int(data["_id"])]
-                started = True
-            except KeyError:
-                message = None
-                started = False
+            message = None
 
-                if not data["text_channel_id"]:
+            if not data["text_channel_id"]:
+                text_channel = None
+            elif not isinstance(data["text_channel_id"], disnake.Thread):
+                text_channel = self.bot.get_channel(data["text_channel_id"])
+            else:
+                try:
+                    text_channel = self.bot.get_channel(int(data["text_channel_id"])) or \
+                               await self.bot.fetch_channel(int(data["text_channel_id"]))
+                except (disnake.NotFound, TypeError):
                     text_channel = None
-                elif not isinstance(data["text_channel_id"], disnake.Thread):
-                    text_channel = self.bot.get_channel(data["text_channel_id"])
-                else:
-                    try:
-                        text_channel = self.bot.get_channel(int(data["text_channel_id"])) or \
-                                   await self.bot.fetch_channel(int(data["text_channel_id"]))
-                    except (disnake.NotFound, TypeError):
-                        text_channel = None
-                        data["message_id"] = None
-
-                if not text_channel:
-                    data['static'] = False
-                    text_channel = voice_channel
                     data["message_id"] = None
 
-                if text_channel:
-                    try:
+            voice_channel = self.bot.get_channel(data["voice_channel"])
+
+            if not text_channel:
+                data['static'] = False
+                text_channel = voice_channel
+                data["message_id"] = None
+
+            if text_channel:
+                try:
                         can_send_message(text_channel, self.bot.user)
-                    except Exception:
-                        print(f"{self.bot.user} - Controller Bị bỏ qua (thiếu sự cho phép) [Kênh: {text_channel.name} | ID: {text_channel.id}] - [ {guild.name} - {guild.id} ]")
+                except Exception:
+                        print(f"{self.bot.user} - Controller Ignored (lack of permission) [Channel: {text_channel.name} | ID: {text_channel.id}] - [ {guild.name} - {guild.id} ]")
                         text_channel = None
-                    else:
-                        if data["message_id"]:
-                            try:
+                else:
+                    if data["message_id"]:
+                        try:
                                 message = await text_channel.fetch_message(data["message_id"])
-                            except (disnake.NotFound, disnake.Forbidden):
+                        except (disnake.NotFound, disnake.Forbidden):
                                 pass
 
-                message_without_thread = None
+            message_without_thread = None
 
-                if text_channel and not message and text_channel.permissions_for(guild.me).read_message_history:
-                    try:
-                        async for msg in text_channel.history(limit=100):
+            if text_channel and not message and text_channel.permissions_for(guild.me).read_message_history:
+                try:
+                    async for msg in text_channel.history(limit=100):
 
-                            if msg.author.id != self.bot.user.id:
-                                continue
+                        if msg.author.id != self.bot.user.id:
+                            continue
 
-                            if msg.reference:
-                                continue
+                        if msg.reference:
+                            continue
 
-                            if msg.thread:
-                                message = msg
-                                break
+                        if msg.thread:
+                            message = msg
+                            break
 
-                            if message_without_thread:
-                                continue
+                        if message_without_thread:
+                            continue
 
-                            message_without_thread = msg
+                        message_without_thread = msg
 
-                    except Exception as e:
-                        print(f"{self.bot.user} - Falha ao obter mensagem: {repr(e)}\n"
+                except Exception as e:
+                        print(f"{self.bot.user} - Failed to get message: {repr(e)}\n"
                               f"channel_id: {text_channel.id} | message_id {data['message']}")
 
-                if not voice_channel or not voice_channel.permissions_for(guild.me).connect:
-                    if data["voice_channel"] != (vc:=data.get("last_voice_channel_id", data["voice_channel"])):
-                        voice_channel=vc
-                        try:
-                            del data["voice_state"]
-                        except:
-                            pass
-
-                if not voice_channel:
-                    print(f"{self.bot.user} - Người chơi bị bỏ qua: {guild.name} [{guild.id}]\nKênh thoại không tồn tại...")
+            if not voice_channel:
+                    print(f"{self.bot.user} -Người chơi bị bỏ qua: {guild.name} [{guild.id}]\nKênh thoại không tồn tại...")
                     try:
                         msg = "Trình phát bị chấm dứt do kênh thoại không tồn tại hoặc đã bị xóa."
                         if not data["skin_static"]:
@@ -450,10 +402,12 @@ class PlayerSession(commands.Cog):
                         await self.delete_data(guild.id)
                     return
 
-                try:
+            try:
                     can_connect(voice_channel, guild=guild, bot=self.bot)
-                except Exception as e:
+            except Exception as e:
                     print(f"{self.bot.user} - Player Ignorado: {guild.name} [{guild.id}]\n{repr(e)}")
+                    if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
+                        await self.delete_data(guild.id)
                     try:
                         msg = f"Trình phát đã bị chấm dứt do không có quyền kết nối với kênh {voice_channel.mention}."
                         if not data["skin_static"]:
@@ -464,193 +418,180 @@ class PlayerSession(commands.Cog):
                         traceback.print_exc()
                     return
 
-                if data["purge_mode"] == SongRequestPurgeMode.on_player_start:
-                    data["purge_mode"] = SongRequestPurgeMode.no_purge
-                    temp_purge_mode = True
-                else:
-                    temp_purge_mode = False
+            if data["purge_mode"] == SongRequestPurgeMode.on_player_start:
+                data["purge_mode"] = SongRequestPurgeMode.no_purge
+                temp_purge_mode = True
+            else:
+                temp_purge_mode = False
 
-                while True:
+            while True:
 
-                    node = self.bot.music.get_best_node()
+                node = self.bot.music.get_best_node()
 
-                    if not node:
-                        try:
-                            node = await self.bot.wait_for("wavelink_node_ready", timeout=5)
-                        except asyncio.TimeoutError:
-                            continue
+                if not node:
+                    try:
+                        node = await self.bot.wait_for("wavelink_node_ready", timeout=5)
+                    except asyncio.TimeoutError:
+                        continue
 
-                    break
+                break
+
+            try:
+                player: LavalinkPlayer = self.bot.music.get_player(
+                    node_id=node.identifier,
+                    guild_id=guild.id,
+                    cls=LavalinkPlayer,
+                    guild=guild,
+                    channel=text_channel,
+                    message=message or message_without_thread,
+                    last_message_id=data["message_id"],
+                    skin=data["skin"],
+                    skin_static=data["skin_static"],
+                    player_creator=data["player_creator"],
+                    keep_connected=data.get("keep_connected"),
+                    autoplay=data.get("autoplay", False),
+                    static=data['static'],
+                    custom_skin_data=data.get("custom_skin_data", {}),
+                    custom_skin_static_data=data.get("custom_skin_static_data", {}),
+                    extra_hints=hints,
+                    uptime=data.get("uptime"),
+                    stage_title_event=data.get("stage_title_event", False),
+                    stage_title_template=data.get("stage_title_template"),
+                    restrict_mode=data["restrict_mode"],
+                    volume=int(data["volume"]),
+                    prefix=data["prefix_info"],
+                    purge_mode=data["purge_mode"],
+                    session_resuming=True,
+                )
+            except Exception:
+                print(f"{self.bot.user} - Thất bại khi khởi tạo trình phát ở: {guild.name} [{guild.id}]\n{traceback.format_exc()}")
+                if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
+                    await self.delete_data(guild.id)
+                return
+
+            try:
+                player._voice_state = data["voice_state"]
+            except KeyError:
+                pass
+
+            try:
+                player.mini_queue_enabled = data["mini_queue_enabled"]
+            except:
+                pass
+
+            if temp_purge_mode:
+                player.purge_mode = SongRequestPurgeMode.on_player_start
+
+            player.listen_along_invite = data.pop("listen_along_invite", "")
+
+            player.dj = set(data["dj"])
+            player.loop = data["loop"]
+
+            player.nightcore = data.get("nightcore")
+
+            if player.nightcore:
+                await player.set_timescale(pitch=1.2, speed=1.1)
+
+            if player.nightcore:
+                await player.set_timescale(pitch=1.2, speed=1.1)
+
+            await player.connect(voice_channel.id)
+
+            wait_counter = 30
+
+            while wait_counter > 1:
+                if not guild.me.voice:
+                    wait_counter -= 1
+                    await asyncio.sleep(1)
+                    continue
+                break
+
+            if not wait_counter:
+                print(f"{self.bot.user} - {guild.name}: Player ignored due to delay in connecting to the voice channel.")
+                return
+
+            if isinstance(voice_channel, disnake.StageChannel) and \
+                    voice_channel.permissions_for(guild.me).mute_members:
+
+                await asyncio.sleep(3)
 
                 try:
-                    player: LavalinkPlayer = self.bot.music.get_player(
-                        node_id=node.identifier,
-                        guild_id=guild.id,
-                        cls=LavalinkPlayer,
-                        guild=guild,
-                        channel=text_channel,
-                        message=message or message_without_thread,
-                        last_message_id=data["message_id"],
-                        skin=data["skin"],
-                        skin_static=data["skin_static"],
-                        player_creator=data["player_creator"],
-                        keep_connected=data.get("keep_connected"),
-                        autoplay=data.get("autoplay", False),
-                        static=data['static'],
-                        custom_skin_data=data.get("custom_skin_data", {}),
-                        custom_skin_static_data=data.get("custom_skin_static_data", {}),
-                        extra_hints=hints,
-                        uptime=data.get("uptime"),
-                        stage_title_event=data.get("stage_title_event", False),
-                        stage_title_template=data.get("stage_title_template"),
-                        restrict_mode=data["restrict_mode"],
-                        prefix=data["prefix_info"],
-                        purge_mode=data["purge_mode"],
-                        session_resuming=True,
-                    )
-                except Exception:
-                    print(f"{self.bot.user} - Thất bại khi tạo người chơi: {guild.name} [{guild.id}]\n{traceback.format_exc()}")
-                    if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
-                        await self.delete_data(guild.id)
+                    await guild.me.edit(suppress=False)
+                except Exception as e:
+                    print(f"{self.bot.user} - Failed to speak on the server stage {guild.name}. Erro: {repr(e)}")
                     return
 
-                try:
-                    player._voice_state = data["voice_state"]
-                except KeyError:
-                    pass
-
-                try:
-                    player.mini_queue_enabled = data["mini_queue_enabled"]
-                except:
-                    pass
-
-                if temp_purge_mode:
-                    player.purge_mode = SongRequestPurgeMode.on_player_start
-
-                player.listen_along_invite = data.pop("listen_along_invite", "")
-
-                player.dj = set(data["dj"])
-                player.loop = data["loop"]
-
-                player.volume = int(data["volume"])
-
-                if player.volume != 100 and player.node.version == 3:
-                    player.filters["volume"] = max(min(player.volume, 1000), 0)
-
-                player.nightcore = data.get("nightcore")
-
-                if player.nightcore:
-                    player.filters.update(AudioFilter.timescale(pitch=1.2, speed=1.1))
-
-                if node.version == 3:
-
-                    if player.filters:
-                        await player.update_filters()
-
-                    await player.connect(voice_channel.id)
-
-                    await self.voice_check(voice_channel)
-
-            tracks, playlists = self.bot.pool.process_track_cls(data["queue"])
+            tracks, playlists = self.process_track_cls(data["queue"])
 
             player.queue.extend(tracks)
 
-            played_tracks, playlists = self.bot.pool.process_track_cls(data["played"], playlists)
+            played_tracks, playlists = self.process_track_cls(data["played"], playlists)
 
             player.played.extend(played_tracks)
 
-            queue_autoplay_tracks, playlists = self.bot.pool.process_track_cls(data.get("queue_autoplay", []))
+            queue_autoplay_tracks, playlists = self.process_track_cls(data.get("queue_autoplay", []))
 
             player.queue_autoplay.extend(queue_autoplay_tracks)
 
-            failed_tracks, playlists = self.bot.pool.process_track_cls(data.get("failed_tracks", []), playlists)
+            failed_tracks, playlists = self.process_track_cls(data.get("failed_tracks", []), playlists)
 
-            player.queue.extend(failed_tracks)
+            player.failed_tracks.extend(failed_tracks)
 
-            if started:
-                player.set_command_log(
-                    text="Dữ liệu người chơi đã được khôi phục với thành công!",
-                    emoji="🔰"
-                )
-                player.update = True
+            if player.keep_connected and not player.queue:
+                if player.failed_tracks:
+                    player.queue.extend(reversed(player.failed_tracks))
+                    player.failed_tracks.clear()
+                if not player.queue:
+                    player.queue.extend(player.played)
+                    player.played.clear()
 
-            else:
-                if player.keep_connected and not player.queue and not player.queue_autoplay:
-                    if player.failed_tracks:
-                        player.queue.extend(reversed(player.failed_tracks))
-                        player.failed_tracks.clear()
-                    if not player.queue:
-                        player.queue.extend(player.played)
-                        player.played.clear()
+            player.set_command_log(
+                text="Hệ thống âm nhạc đã được khôi phục thành công!",
+                emoji="🔰"
+            )
 
-                player.set_command_log(
-                    text="Người chơi đã được khôi phục thành công!",
-                    emoji="🔰"
-                )
+            try:
+                check = any(m for m in player.guild.me.voice.channel.members if not m.bot or not (m.voice.deaf or m.voice.self_deaf))
+            except:
+                check = None
 
-                try:
-                    check = any(m for m in player.guild.me.voice.channel.members if not m.bot or not (m.voice.deaf or m.voice.self_deaf))
-                except:
-                    check = None
+            try:
+                if data.get("paused") and check:
 
-                try:
-                    if (pause:=data.get("paused") and check):
+                    try:
+                        track = player.queue.popleft()
+                    except:
+                        track = None
 
-                        try:
-                            track = player.queue.popleft()
-                        except:
-                            track = None
-
-                        if track:
-                            player.current = track
-                            position = int(float(data.get("position", 0)))
-                            if player.node.version == 3:
-                                if check:
-                                    await player.play(track, start=position if not track.is_stream else 0)
-                                    await player.set_pause(True)
-                            else:
-                                await self.update_player(
-                                    player=player, voice_channel=voice_channel, pause=pause, position=position, has_members=check
-                                )
-                            player.last_position = position
-                            player.last_track = track
-                            await player.invoke_np(rpc_update=True)
-                            await player.update_stage_topic()
-
-                        else:
-                            if player.node.version > 3:
-                                await self.update_player(
-                                    player=player, voice_channel=voice_channel, pause=pause, position=0, has_members=check
-                                )
-                                player.last_position = int(float(data.get("position", 0)))
-                                await player.invoke_np()
-                            else:
-                                if check:
-                                    await player.process_next()
+                    if track:
+                        player.current = track
+                        position = int(float(data.get("position", 0)))
+                        await player.play(track, start=position if not track.is_stream else 0)
+                        player.last_position = position
+                        player.last_track = track
+                        await player.set_pause(True)
+                        await player.invoke_np(rpc_update=True)
+                        await player.update_stage_topic()
 
                     else:
-                        position = int(float(data.get("position", 0)))
-                        if player.node.version > 3:
-                            await self.update_player(
-                                player=player, voice_channel=voice_channel, pause=pause, position=position, has_members=check
-                            )
-                            await player.invoke_np()
-                        else:
-                            if check:
-                                await player.process_next(start_position=position)
-                        player._session_resuming = False
-                except Exception:
-                    print(f"{self.bot.user} - Không phát bài hát khi tiếp tục trình phát máy chủ {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
-                    return
+                        await player.process_next(clear_autoqueue=False)
 
-                try:
-                    player.members_timeout_task.cancel()
-                except:
-                    pass
+                else:
+                    position = int(float(data.get("position", 0)))
+                    await player.process_next(start_position=position)
+                    player._session_resuming = False
+            except Exception:
+                print(f"{self.bot.user} - Không thể phát nhạc khi tiếp tục trình phát từ máy chủ {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
+                return
 
-                player.members_timeout_task = self.bot.loop.create_task(player.members_timeout(check=check, idle_timeout=10))
+            try:
+                player.members_timeout_task.cancel()
+            except:
+                pass
 
-            print(f"{self.bot.user} - Tiếp tục phát: {guild.name} [{guild.id}] - Server: {player.node.identifier}")
+            player.members_timeout_task = self.bot.loop.create_task(player.members_timeout(check=check, idle_timeout=10))
+
+            print(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}]")
 
         except Exception:
             print(f"{self.bot.user} - Critical failure when resuming players:\n{traceback.format_exc()}")
@@ -758,7 +699,7 @@ class PlayerSession(commands.Cog):
                 await self.save_session_local(player.guild.id, data)
 
         except asyncio.CancelledError as e:
-            print(f"❌ - {self.bot.user} - Hủy lưu: {repr(e)}")
+            print(f"❌ - {self.bot.user} - Save cancelled: {repr(e)}")
 
     async def delete_data_mongo(self, id_: Union[LavalinkPlayer, int]):
         await self.bot.pool.mongo_database.delete_data(id_=str(id_), db_name=str(self.bot.user.id),

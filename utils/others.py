@@ -18,7 +18,6 @@ from utils.music.errors import GenericError, ArgumentParsingError
 
 if TYPE_CHECKING:
     from utils.client import BotCore
-    from utils.music.models import LavalinkPlayer
 
 token_regex = re.compile(r'[a-zA-Z0-9_-]{23,28}\.[a-zA-Z0-9_-]{6,7}\.[a-zA-Z0-9_-]{27,}')
 
@@ -52,7 +51,7 @@ class CommandArgparse(argparse.ArgumentParser):
             for arg_name in e.argument_name.split("/"):
                 for c, a in enumerate(args):
                     if a.startswith(arg_name):
-                        args[c] = a.replace("-", "", 1)
+                        args[c] = a.replace("-", "", count=1)
                         return self.parse_known_args(args, namespace)
 
     def error(self, message: str):
@@ -70,7 +69,7 @@ class CustomContext(commands.Context):
         self.store_message = None
         self.application_command = None
 
-    async def defer(self, ephemeral: bool = False, *args, **kwargs):
+    async def defer(self, ephemeral: bool = False):
 
         if ephemeral:
             return
@@ -167,7 +166,7 @@ class PlayerControls:
     integration_manager = "musicplayer_integration_manager"
     autoplay = "musicplayer_autoplay"
     add_favorite = "musicplayer_add_favorite"
-    set_voice_status = "musicplayer_set_voice_status"
+    stage_announce = "musicplayer_stage_announce"
     lyrics = "musicplayer_lyrics"
     embed_add_fav = "musicplayer_embed_add_fav"
     embed_enqueue_track = "musicplayer_embed_enqueue_track"
@@ -248,6 +247,17 @@ def pool_command(*args, **kwargs)-> PoolCommand:
     return commands.command(*args, **kwargs, cls=PoolCommand)
 
 
+def sync_message(bot: BotCore):
+    app_commands_invite = f"https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&scope=applications.commands"
+    bot_invite = disnake.utils.oauth_url(bot.user.id, permissions=disnake.Permissions(bot.config['INVITE_PERMISSIONS']), scopes=('bot', 'applications.commands'), redirect_uri=bot.config['INVITE_REDIRECT_URL'])
+
+    return f"`Nếu lệnh gạch chéo không xuất hiện, ` [`bấm vào đây`]({app_commands_invite}) ` để cho phép tôi " \
+            "tạo lệnh gạch chéo trên máy chủ.`\n\n" \
+            "`Lưu ý: Trong một số trường hợp, các lệnh gạch chéo có thể mất tới một giờ để xuất hiện/cập nhật" \
+            "các máy chủ. Nếu bạn muốn sử dụng lệnh gạch chéo ngay trên máy chủ, bạn sẽ phải " \
+            f"đuổi tôi ra khỏi máy chủ rồi thêm lại tôi thông qua` [`link`]({bot_invite})..."
+
+
 def chunk_list(lst: list, amount: int):
     return [lst[i:i + amount] for i in range(0, len(lst), amount)]
 
@@ -269,12 +279,11 @@ async def check_cmd(cmd, inter: Union[disnake.Interaction, disnake.ModalInteract
             if not c:
                 raise commands.CheckFailure()
 
-    if cmd._buckets._cooldown:
-        bucket = cmd._buckets.get_bucket(inter)  # type: ignore
-        if bucket:
-            retry_after = bucket.update_rate_limit()
-            if retry_after:
-                raise commands.CommandOnCooldown(cooldown=bucket, retry_after=retry_after, type=cmd._buckets.type)
+    bucket = cmd._buckets.get_bucket(inter)  # type: ignore
+    if bucket:
+        retry_after = bucket.update_rate_limit()
+        if retry_after:
+            raise commands.CommandOnCooldown(cooldown=bucket, retry_after=retry_after, type=cmd._buckets.type)
 
     """try:
         chkcmd = list(cmd.children.values())[0]
@@ -304,7 +313,7 @@ async def send_message(
 
     try:
         if not kwargs["components"]:
-            kwargs["components"] = []
+            kwargs.pop('components')
     except KeyError:
         pass
 
@@ -348,7 +357,7 @@ async def send_message(
 
         try:
             await inter.send(text, ephemeral=True, **kwargs)
-        except (disnake.InteractionTimedOut,  disnake.HTTPException):
+        except disnake.InteractionTimedOut:
 
             try:
                 if isinstance(inter.channel, disnake.Thread):
@@ -389,30 +398,11 @@ async def send_idle_embed(
     except AttributeError:
         cmd = "/play"
 
-    providers = set()
-
-    for n in bot.music.nodes.values():
-        try:
-            for p in n.info["sourceManagers"]:
-                if p == "youtube":
-                    if "ytsearch" not in n.original_providers and "ytmsearch" not in n.original_providers:
-                        continue
-                elif p == "http":
-                    continue
-                providers.add(p)
-        except:
-            continue
-
-    if not providers:
-        sources = "[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m"
-    else:
-        sources = ", ".join(f"[34;1m{p}[0m" for p in providers)
-
     embed = disnake.Embed(description="**Tham gia kênh thoại và yêu cầu bài hát tại đây " +
-                                        ("trong bài đăng" if is_forum else "trong kênh hoặc cuộc trò chuyện bên dưới") +
-                                       f" (hoặc nhấp vào nút bên dưới hoặc sử dụng lệnh {cmd} tại đây hoặc trên kênh khác)**\n\n"
-                                       "**Bạn có thể sử dụng tên hoặc liên kết trang web tương thích:**"
-                                      f" ```ansi\n{sources}```\n",
+                                      ("trong bài đăng" if is_forum else "trong kênh hoặc trong cuộc trò chuyện bên dưới") +
+                                      f" (hoặc nhấp vào nút bên dưới hoặc sử dụng lệnh {cmd} tại đây hoặc trên kênh khác)**\n\n"
+                                      "**Bạn có thể sử dụng tên hoặc liên kết trang web được hỗ trợ:**"
+                                      " ```ansi\n[31;1mYoutube[0m, [33;1mSoundcloud[0m, [32;1mSpotify[0m, [34;1mTwitch[0m```\n",
                           color=bot.get_color(target.guild.me))
 
     if text:
@@ -569,9 +559,9 @@ music_source_emoji_data = {
     "youtube": "<:youtube:647253940882374656>",
     "soundcloud": "<:soundcloud:721530214764773427>",
     "spotify": "<:spotify:715717523626000445>",
-    "deezer": "<:deezer:1226124676372365402>",
-    "applemusic": "<:applemusic:1225631877658968164>",
+    "deezer": "<:deezer:1190802442053505025>",
     "twitch": "<:Twitch:803656463695478804>",
+    "applemusic": "<:applemusic:1232560350449242123>",
 }
 
 def music_source_emoji(name: str):
@@ -610,7 +600,7 @@ def music_source_emoji_url(url: str):
 
     if tw_url_regex.match(url):
         return music_source_emoji_data["twitch"]
-
+    
     if am_url_regex.match(url):
         return music_source_emoji_data["applemusic"]
 
@@ -637,27 +627,19 @@ def music_source_emoji_id(id_: str):
 async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction, disnake.AppCmdInter], first=False, return_new=False, edit_original=False):
 
     if isinstance(inter, CustomContext):
-        if len(inter.bot.pool.get_guild_bots(inter.guild_id)) < 2:
+        if len(inter.bot.pool.bots) < 2:
             return inter, inter.bot
 
     bots = {}
 
-    for pb in inter.bot.pool.get_guild_bots(inter.guild_id):
+    for pb in inter.bot.pool.bots:
 
         if pb.get_guild(inter.guild_id):
             bots[pb.user.id] = pb
 
     if not bots:
 
-        try:
-            allow_private = inter.application_command.extras["allow_private"]
-        except:
-            allow_private = False
-
-        if allow_private:
-            return inter, inter.bot
-
-        if (bcount:=len([b for b in inter.bot.pool.get_guild_bots(inter.guild_id) if b.appinfo and b.appinfo.bot_public])):
+        if [b for b in inter.bot.pool.bots if b.appinfo and b.appinfo.bot_public]:
             raise GenericError(
                 f"**Bạn sẽ cần thêm vào máy chủ ít nhất một bot tương thích bằng cách nhấp vào nút bên dưới:**",
                 components=[disnake.ui.Button(custom_id="bot_invite", label="Thêm (các) bot")]
@@ -744,7 +726,7 @@ async def select_bot_pool(inter: Union[CustomContext, disnake.MessageInteraction
 def queue_track_index(inter: disnake.AppCmdInter, bot: BotCore, query: str, match_count: int = 1,
                       case_sensitive: bool = False):
 
-    player: LavalinkPlayer = bot.music.players[inter.guild_id]
+    player = bot.music.players[inter.guild_id]
 
     try:
         query, unique_id = query.split(" || ID > ")
@@ -757,7 +739,7 @@ def queue_track_index(inter: disnake.AppCmdInter, bot: BotCore, query: str, matc
 
     count = int(match_count)
 
-    for counter, track in enumerate(player.queue + player.queue_autoplay):
+    for counter, track in enumerate(player.queue):
 
         if unique_id is not None:
 
@@ -810,11 +792,7 @@ def update_inter(old: Union[disnake.Interaction, CustomContext], new: disnake.In
     else:
         old.token = new.token
         old.id = new.id
-
-        try:
-            old.response = new.response
-        except AttributeError:
-            pass
+        old.response = new.response
 
         try:
             old.self_mod = True

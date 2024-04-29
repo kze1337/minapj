@@ -6,7 +6,8 @@ import traceback
 from typing import Optional, TYPE_CHECKING
 from urllib.parse import quote
 
-from spotipy import SpotifyClientCredentials, CacheFileHandler, Spotify, SpotifyException
+import spotipy
+from spotipy import SpotifyClientCredentials
 
 from utils.music.converters import fix_characters
 from utils.music.errors import MissingSpotifyClient, GenericError
@@ -129,8 +130,8 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
 
         try:
             result = await bot.loop.run_in_executor(None, lambda: bot.spotify.playlist(url_id))
-        except SpotifyException as e:
-            raise GenericError("**Xảy ra lỗi khi xử lý danh sách phát:** ```py"
+        except spotipy.SpotifyException as e:
+            raise GenericError("**Đã xảy ra lỗi khi xử lý danh sách phát:** ```py"
                                f"{repr(e)}```")
         data["playlistInfo"]["name"] = result["name"]
         data["playlistInfo"]["thumb"] = result["images"][0]["url"]
@@ -143,7 +144,6 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
         raise GenericError(f"**Không có kết quả nào cho liên kết Spotify được cung cấp..**")
 
     data["playlistInfo"]["selectedTrack"] = -1
-    data["playlistInfo"]["type"] = url_type
 
     playlist = PartialPlaylist(data, url=query)
 
@@ -184,7 +184,7 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
 
         if t["artists"][0]["name"]:
             track.info["extra"]["authors"] = [fix_characters(i['name']) for i in t['artists'] if f"feat. {i['name'].lower()}" not in t['name'].lower()]
-            track.info["extra"]["authors_md"] = ", ".join(f"[`{fix_characters(a['name'])}`](<" + a['external_urls'].get('spotify', f'https://www.youtube.com/results?search_query={quote(t["name"])}') + ">)" for a in t['artists'])
+            track.info["extra"]["authors_md"] = ", ".join(f"[`{fix_characters(a['name'])}`]({a['external_urls']['spotify']})" for a in t['artists'])
         else:
             track.info["extra"]["authors"] = ["Unknown Artist"]
             track.info["extra"]["authors_md"] = "`Unknown Artist`"
@@ -194,7 +194,7 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
     return playlist
 
 
-def spotify_client(config: dict) -> Optional[Spotify]:
+def spotify_client(config: dict) -> Optional[spotipy.Spotify]:
     if not config['SPOTIFY_CLIENT_ID']:
         print(
             f"[BỎ QUA] - Hỗ trợ Spotify: SPOTIFY_CLIENT_ID chưa được định cấu hình trong ENV máy chủ (hoặc tệp .env)."
@@ -208,11 +208,10 @@ def spotify_client(config: dict) -> Optional[Spotify]:
         return
 
     try:
-        return Spotify(
+        return spotipy.Spotify(
             auth_manager=SpotifyClientCredentials(
                 client_id=config['SPOTIFY_CLIENT_ID'],
-                client_secret=config['SPOTIFY_CLIENT_SECRET'],
-                cache_handler=CacheFileHandler(cache_path="./.spotipy_cache")
+                client_secret=config['SPOTIFY_CLIENT_SECRET']
             )
         )
 

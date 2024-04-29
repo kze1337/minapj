@@ -58,7 +58,7 @@ def get_button_style(enabled: bool, red=True):
         if red:
             return disnake.ButtonStyle.red
         return disnake.ButtonStyle.green
-    return disnake.ButtonStyle.grey
+    return disnake.ButtonStyle.green
 
 
 def fix_characters(text: str, limit: int = 0):
@@ -148,7 +148,7 @@ sources = {
 def music_source_image(sourcename):
     return sources.get(
         sourcename,
-        "https://cdn.discordapp.com/attachments/480195401543188483/895862881105616947/music_equalizer.gif"
+        "https://i.ibb.co/17CK6c1/764167636849917952.gif"
     )
 
 

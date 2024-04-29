@@ -1362,7 +1362,7 @@ class MusicSettings(commands.Cog):
         else:
             await inter.send(ephemeral=True, **kwargs)
 
-        for b in self.bot.pool.get_guild_bots(interaction.guild_id):
+        for b in self.bot.pool.bots:
 
             try:
                 player: LavalinkPlayer = b.music.players[inter.guild_id]
@@ -1421,14 +1421,14 @@ class MusicSettings(commands.Cog):
     @commands.command(
         name="nodeinfo",
         aliases=["llservers", "ll"],
-        description="Ver informações dos servidores de música."
+        description="Xem thông tin từ máy chủ âm nhạc."
     )
     async def nodeinfo_legacy(self, ctx: CustomContext):
         await self.nodeinfo.callback(self=self, interaction=ctx)
 
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.slash_command(
-        description=f"{desc_prefix}Ver informações dos servidores de música (lavalink servers).", dm_permission=False
+        description=f"{desc_prefix}Xem thông tin từ các máy chủ âm nhạc (máy chủ Lavalink).", dm_permission=False
     )
     async def nodeinfo(self, interaction: disnake.AppCmdInter):
 
@@ -1439,10 +1439,10 @@ class MusicSettings(commands.Cog):
 
         guild = bot.get_guild(inter.guild_id) or inter.guild
 
-        em = disnake.Embed(color=bot.get_color(guild.me), title="Servidores de música:")
+        em = disnake.Embed(color=bot.get_color(guild.me), title="Máy chủ âm nhạc:")
 
         if not bot.music.nodes:
-            em.description = "**Não há servidores.**"
+            em.description = "**Không có máy chủ.**"
             await inter.send(embed=em)
             return
 
@@ -1461,7 +1461,7 @@ class MusicSettings(commands.Cog):
                 failed_nodes.add(node.identifier)
                 continue
 
-            txt = f"Região: `{node.region.title()}`\n"
+            txt = f" 🌐 Vùng: `{node.region.title()}`\n"
 
             used = humanize.naturalsize(node.stats.memory_used)
             total = humanize.naturalsize(node.stats.memory_allocated)
@@ -1470,12 +1470,12 @@ class MusicSettings(commands.Cog):
             cpu_usage = f"{node.stats.lavalink_load * 100:.2f}"
             started = node.stats.players
 
-            txt += f'RAM: `{used}/{free}`\n' \
-                   f'RAM Total: `{total}`\n' \
-                   f'CPU Cores: `{cpu_cores}`\n' \
-                   f'Uso de CPU: `{cpu_usage}%`\n' \
-                   f'Versão do Lavalink: `v{node.version}`\n' \
-                   f'Uptime: <t:{int((disnake.utils.utcnow() - datetime.timedelta(milliseconds=node.stats.uptime)).timestamp())}:R>\n'
+            txt += f' <:ram:1204300272957001778> RAM: `{used}/{free}`\n' \
+                   f' <:ram:1204300272957001778> Tổng RAM: `{total}`\n' \
+                   f' <:cpu:1146331051556339712> Số nhân CPU: `{cpu_cores}`\n' \
+                   f' <:cpu:1146331051556339712> Mức sử dụng CPU: `{cpu_usage}%`\n' \
+                   f' <a:z55:1203596745087520850> Phiên bản Lavalink `{node.version}`\n' \
+                   f' <a:loading:1117802386333905017> Lần khởi động lại cuối cùng: <t:{int((disnake.utils.utcnow() - datetime.timedelta(milliseconds=node.stats.uptime)).timestamp())}:R>\n'
 
             if started:
                 txt += "Players: "
@@ -1489,11 +1489,11 @@ class MusicSettings(commands.Cog):
                 txt += "\n"
 
             if node.website:
-                txt += f'[`Website do server`]({node.website})\n'
+                txt += f'[`Trang web của máy chủ`]({node.website})\n'
 
-            status = "🌟" if current_player else "✅"
+            status = "<a:aloadig:1138360673068384366>" if current_player else "<:upvote:1146329733102047242>"
 
-            em.add_field(name=f'**{identifier}** `{status}`', value=txt)
+            em.add_field(name=f'**{identifier}** {status}', value=txt)
             em.set_footer(text=f"{bot.user} - [{bot.user.id}]", icon_url=bot.user.display_avatar.with_format("png").url)
 
         embeds = [em]
@@ -1501,7 +1501,7 @@ class MusicSettings(commands.Cog):
         if failed_nodes:
             embeds.append(
                 disnake.Embed(
-                    title="**Servidores que falharam** `❌`",
+                    title="**Máy chủ lỗi** ⁉️⁉️",
                     description=f"```ansi\n[31;1m" + "\n".join(failed_nodes) + "[0m\n```",
                     color=bot.get_color(guild.me)
                 )
@@ -1561,7 +1561,7 @@ class MusicSettings(commands.Cog):
                             "[34;1m{track.title}[0m -> Nome da música\n"
                             "[34;1m{track.title_25}[0m -> Nome da música (até 25 caracteres)\n"
                             "[34;1m{track.title_42}[0m -> Nome da música (até 42 caracteres)\n"
-                            "[34;1m{track.title_58}[0m -> Nome da música (até 58 caracteres)\n"
+                            "[34;1m{track.title_25}[0m -> Nome da música (até 58 caracteres)\n"
                             "[34;1m{track.url}[0m -> Link da música\n"
                             "[34;1m{track.author}[0m -> Nome do Uploader/Artista da música\n"
                             "[34;1m{track.duration}[0m -> Tempo/Duração da música\n"
@@ -1769,7 +1769,7 @@ class RPCCog(commands.Cog):
 
     async def close_presence(self, inter: Union[disnake.MessageInteraction, disnake.ModalInteraction]):
 
-        for b in self.bot.pool.get_guild_bots(inter.guild_id):
+        for b in self.bot.pool.bots:
             try:
                 player: LavalinkPlayer = b.music.players[inter.guild_id]
             except KeyError:

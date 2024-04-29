@@ -18,7 +18,7 @@ from utils.db import DBModel
 from utils.music.checks import check_pool_bots
 from utils.music.converters import time_format, fix_characters, URL_REG
 from utils.music.errors import GenericError
-from utils.music.models import LavalinkPlayer, LavalinkTrack
+from utils.music.models import LavalinkPlayer
 from utils.music.skin_utils import skin_converter
 from utils.music.spotify import spotify_regex_w_user
 from utils.others import check_cmd, CustomContext, send_idle_embed, music_source_emoji_url, \
@@ -60,58 +60,58 @@ class VolumeInteraction(disnake.ui.View):
 
 class QueueInteraction(disnake.ui.View):
 
-    def __init__(self, bot: BotCore, user: disnake.Member, timeout=120):
+    def __init__(self, player, user: disnake.Member, timeout=60):
 
-        self.bot = bot
+        self.player = player
+        self.bot = player.bot
         self.user = user
-        self.track_pages = []
-        self.select_options = []
-        self.current_page = 0
-        self.max_page = 1
-        self.max_items = 8
+        self.pages = []
+        self.select_pages = []
+        self.current = 0
+        self.max_page = len(self.pages) - 1
         self.message: Optional[disnake.Message] = None
-        self.current_track: Optional[LavalinkTrack] = None
         super().__init__(timeout=timeout)
         self.embed = disnake.Embed(color=self.bot.get_color(user.guild.me))
         self.update_pages()
         self.update_embed()
 
-    def update_pages(self, reset_page=True):
+    def update_pages(self):
 
-        player: LavalinkPlayer = self.bot.music.players[self.user.guild.id]
+        counter = 1
 
-        if reset_page:
-            self.current_page = 0
-
-        self.track_pages.clear()
-        self.track_pages = list(disnake.utils.as_chunks(player.queue or player.queue_autoplay, max_size=self.max_items))
-        self.current_track = self.track_pages[self.current_page][0]
-        self.max_page = len(self.track_pages) - 1
-        self.update_components()
-
-    async def on_timeout(self) -> None:
-
-        if not self.message:
-            return
-
-        self.embed.set_footer(text="Thời gian để tương tác đã bán hết!")
-
-        for c in self.children:
-            c.disabled = True
-
-        await self.message.edit(embed=self.embed, view=self)
-
-
-    def update_components(self):
-
-        if not self.select_options:
-            return
+        self.pages = list(disnake.utils.as_chunks(self.player.queue, max_size=12))
+        self.select_pages.clear()
 
         self.clear_items()
 
+        for n, page in enumerate(self.pages):
+
+            txt = "\n"
+            opts = []
+
+            for t in page:
+
+                duration = time_format(t.duration) if not t.is_stream else '🔴 Livestream'
+
+                txt += f"`┌ {counter})` [`{fix_characters(t.title, limit=50)}`]({t.uri})\n" \
+                       f"`└ ⏲️ {duration}`" + (f" - `Lặp lại: {t.track_loops}`" if t.track_loops else  "") + \
+                       f" **|** `✋` <@{t.requester}>\n"
+
+                opts.append(
+                    disnake.SelectOption(
+                        label=f"{counter}. {t.author}"[:25], description=f"[{duration}] | {t.title}"[:50],
+                        value=f"queue_select_{t.unique_id}",
+                    )
+                )
+
+                counter += 1
+
+            self.pages[n] = txt
+            self.select_pages.append(opts)
+
         track_select = disnake.ui.Select(
             placeholder="Phát một bài hát cụ thể trên trang:",
-            options=self.select_options,
+            options=self.select_pages[self.current],
             custom_id="queue_track_selection",
             max_values=1
         )
@@ -140,120 +140,35 @@ class QueueInteraction(disnake.ui.View):
         stop_interaction.callback = self.stop_interaction
         self.add_item(stop_interaction)
 
-        play = disnake.ui.Button(emoji='▶️', label="Phát", style=disnake.ButtonStyle.grey, custom_id="queue_skip")
-        play.callback = self.invoke_command
-        self.add_item(play)
-
-        move = disnake.ui.Button(emoji="↪️", label="Di chuyển", style=disnake.ButtonStyle.grey, custom_id="queue_move")
-        move.callback = self.move_callback
-        self.add_item(move)
-
-        rotate_q = disnake.ui.Button(emoji='🔃', label="Xoay hàng đợi", style=disnake.ButtonStyle.grey, custom_id="queue_rotate")
-        rotate_q.callback = self.invoke_command
-        self.add_item(rotate_q)
-
         update_q = disnake.ui.Button(emoji='🔄', label="Làm mới", style=disnake.ButtonStyle.grey)
         update_q.callback = self.update_q
         self.add_item(update_q)
 
-    async def move_callback(self, inter: disnake.MessageInteraction):
-        await inter.response.send_modal(
-            ViewModal(
-                view=self, title="Di chuyển âm nhạc được chọn", custom_id="queue_move_modal",
-                components=[
-                    disnake.ui.TextInput(
-                        style=disnake.TextInputStyle.short,
-                        label="Vị trí dòng:",
-                        custom_id="queue_move_position",
-                        max_length=4,
-                        required=True
-                    ),
-                ]
-            )
-        )
+        self.current = 0
+        self.max_page = len(self.pages) - 1
 
-    async def modal_handler(self, inter: disnake.ModalInteraction):
+    async def on_timeout(self) -> None:
 
-        try:
-            if inter.data.custom_id == "queue_move_modal":
+        if not self.message:
+            return
 
-                if not inter.text_values["queue_move_position"].isdigit():
-                    await inter.send("Bạn phải sử dụng một số hợp lệ...", ephemeral=True)
-                    return
+        embed = self.message.embeds[0]
+        embed.set_footer(text="Đã hết thời gian tương tác!")
 
-                await check_cmd(self.bot.get_slash_command("move"), inter)
+        for c in self.children:
+            c.disabled = True
 
-                player: LavalinkPlayer = self.bot.music.players[self.user.guild.id]
-
-                move_func = None
-
-                try:
-                    player.queue.remove(self.current_track)
-                    move_func = player.queue.insert
-                except ValueError:
-                    try:
-                        player.queue_autoplay.remove(self.current_track)
-                        move_func = player.queue_autoplay.insert
-                    except ValueError:
-                        pass
-
-                if move_func:
-                    move_func((int(inter.text_values["queue_move_position"]) or 1)-1, self.current_track)
-                    player.update = True
-
-                self.update_pages(reset_page=False)
-
-                if self.current_page > self.max_page:
-                    self.current_page = 0
-
-                self.update_embed()
-
-                if self.message:
-                    await inter.response.edit_message(embed=self.embed, view=self)
-                else:
-                    await inter.edit_original_message(embed=self.embed, view=self)
-
-            else:
-                await inter.send(f"Phương pháp chưa được thực hiện: {inter.data.custom_id}", ephemeral=True)
-
-        except Exception as e:
-            self.bot.dispatch('interaction_player_error', inter, e)
+        await self.message.edit(embed=embed, view=self)
 
 
     def update_embed(self):
+        self.embed.title = f"**Các bài hát trong hàng [{self.current+1} / {self.max_page+1}]**"
+        self.embed.description = self.pages[self.current]
+        self.children[0].options = self.select_pages[self.current]
 
-        self.embed.title = f"**Bài hát từ hàng đợi [Trang: {self.current_page+1} / {self.max_page+1}]**"
-
-        opts = []
-
-        txt = ""
-
-        for n, t in enumerate(self.track_pages[self.current_page]):
-
-            duration = time_format(t.duration) if not t.is_stream else '🔴 Livestream'
-
-            index = (self.max_items*self.current_page) + n + 1
-
-            if self.current_track == t:
-                txt += f"`╔{'='*50}`\n`║` **{index}º) [{fix_characters(t.title, limit=37)}]({t.uri})**\n" \
-                       f"`║ ⏲️`  **{duration}**" + (f" - `Lặp lại: {t.track_loops}`" if t.track_loops else "") + \
-                       " **|** " + (f"`✋` <@{t.requester}>" if not t.autoplay else f"`👍⠂Gợi ý`") + f"\n`╚{'='*50}`\n"
-            else:
-                txt += f"`┌ {index})` [`{fix_characters(t.title, limit=45)}`]({t.uri})\n" \
-                       f"`└ ⏲️ {duration}`" + (f" - `Lặp lại: {t.track_loops}`" if t.track_loops else "") + \
-                       f" **|** " + (f"`✋` <@{t.requester}>" if not t.autoplay else f"`👍⠂Gợi ý`") + "\n"
-
-            opts.append(
-                disnake.SelectOption(
-                    label=f"{index}. {t.author}"[:25], description=f"[{duration}] | {t.title}"[:50],
-                    value=f"queue_select_{t.unique_id}", default=t == self.current_track
-                )
-            )
-
-        self.embed.description = txt
-        self.select_options = opts
-        self.embed.set_thumbnail(self.current_track.thumb)
-        self.update_components()
+        for n, c in enumerate(self.children):
+            if isinstance(c, disnake.ui.StringSelect):
+                self.children[n].options = self.select_pages[self.current]
 
     async def track_select_callback(self, interaction: disnake.MessageInteraction):
 
@@ -261,114 +176,54 @@ class QueueInteraction(disnake.ui.View):
 
         track = None
 
-        try:
-            player: LavalinkPlayer = self.bot.music.players[self.user.guild.id]
-        except KeyError:
-            self.stop()
-            return
-
-        for t in  player.queue + player.queue_autoplay:
+        for t in  self.player.queue:
             if t.unique_id == track_id:
                 track = t
                 break
 
         if not track:
-            await interaction.send(f"Bài hát có id \"{track_id}\" Không tìm thấy trong hàng đợi người chơi...", ephemeral=True)
+            await interaction.send(f"Không tìm thấy bài hát có id \"{track_id}\" trong hàng đợi người chơi...", ephemeral=True)
             return
 
-        self.current_track = track
-        self.update_embed()
+        command = self.bot.get_slash_command("skip")
 
-        if self.message:
-            await interaction.response.edit_message(embed=self.embed, view=self)
-        else:
-            await interaction.edit_original_message(embed=self.embed, view=self)
-
-    async def invoke_command(self, interaction: disnake.MessageInteraction):
+        interaction.music_bot = self.bot
+        interaction.music_guild = self.user.guild
 
         try:
-            player = self.bot.music.players[self.user.guild.id]
-        except KeyError:
-            await interaction.send("Người chơi đã được hoàn thiện...", ephemeral=True)
-            self.stop()
-            return
-
-        update_inter = False
-
-        try:
-            if self.current_track is None:
-                await interaction.send("Không có bài hát được chọn...", ephemeral=True)
-                return
-
-            if interaction.data.custom_id == "queue_skip":
-                if player.current and player.current.unique_id == self.current_track.unique_id:
-                    await check_cmd(self.bot.get_slash_command("seek"), interaction)
-                    await player.seek(0)
-                    player.set_command_log(emoji="⏪", text=f"{interaction.author.mention} tua bài hát về: `0:00`")
-                    player.update = True
-                    await interaction.response.defer()
-                    return
-                else:
-                    command = self.bot.get_slash_command("skip")
-                    kwargs = {"query": f"{self.current_track.title} || ID > {self.current_track.unique_id}"}
-
-            elif interaction.data.custom_id == "queue_rotate":
-                command = self.bot.get_slash_command("rotate")
-                kwargs = {"query": f"{self.current_track.title} || ID > {self.current_track.unique_id}"}
-                update_inter = True
-
-            else:
-                await interaction.send(f"Lệnh không được thực hiện: {interaction.data.custom_id}", ephemeral=True)
-                return
-
-            interaction.music_bot = self.bot
-            interaction.music_guild = self.user.guild
-
             await check_cmd(command, interaction)
-            await command(interaction, **kwargs)
-
-            if update_inter:
-                self.update_pages()
-                self.update_embed()
-                if self.message:
-                    await interaction.response.edit_message(embed=self.embed, view=self)
-                else:
-                    await interaction.edit_original_message(embed=self.embed, view=self)
-
+            await command(interaction, query=f"{track.title} || ID > {track.unique_id}")
+            self.stop()
         except Exception as e:
             self.bot.dispatch('interaction_player_error', interaction, e)
 
     async def first(self, interaction: disnake.MessageInteraction):
 
-        self.current_page = 0
-        self.current_track = self.track_pages[self.current_page][0]
+        self.current = 0
         self.update_embed()
         await interaction.response.edit_message(embed=self.embed, view=self)
 
     async def back(self, interaction: disnake.MessageInteraction):
 
-        if self.current_page == 0:
-            self.current_page = self.max_page
+        if self.current == 0:
+            self.current = self.max_page
         else:
-            self.current_page -= 1
-        self.current_track = self.track_pages[self.current_page][0]
+            self.current -= 1
         self.update_embed()
         await interaction.response.edit_message(embed=self.embed, view=self)
 
     async def next(self, interaction: disnake.MessageInteraction):
 
-        if self.current_page == self.max_page:
-            self.current_page = 0
+        if self.current == self.max_page:
+            self.current = 0
         else:
-            self.current_page += 1
-        self.current_track = self.track_pages[self.current_page][0]
+            self.current += 1
         self.update_embed()
         await interaction.response.edit_message(embed=self.embed, view=self)
 
     async def last(self, interaction: disnake.MessageInteraction):
 
-        self.current_page = self.max_page
-        self.current_track = self.track_pages[self.current_page][0]
+        self.current = self.max_page
         self.update_embed()
         await interaction.response.edit_message(embed=self.embed, view=self)
 
@@ -380,26 +235,12 @@ class QueueInteraction(disnake.ui.View):
 
     async def update_q(self, interaction: disnake.MessageInteraction):
 
-        self.current_page = 0
-        self.max_page = len(self.track_pages) - 1
+        self.current = 0
+        self.max_page = len(self.pages) - 1
         self.update_pages()
         self.update_embed()
         await interaction.response.edit_message(embed=self.embed, view=self)
 
-    async def interaction_check(self, interaction: disnake.MessageInteraction):
-
-        if interaction.author != self.user:
-            await interaction.send(f"Chỉ thành viên {self.user.mention} mới có thể tương tác tại đây.", ephemeral=True)
-            return
-
-        try:
-            self.bot.music.players[self.user.guild.id]
-        except KeyError:
-            await interaction.response.edit_message(content="Người chơi đã bị chấm dứt...", embed=None, view=None)
-            self.stop()
-            return
-
-        return True
 
 class SelectInteraction(disnake.ui.View):
 
@@ -482,7 +323,7 @@ class AskView(disnake.ui.View):
     async def interaction_check(self, interaction: disnake.MessageInteraction) -> bool:
 
         if interaction.user != self.ctx.author:
-            await interaction.send("Você não pode usar este botão!", ephemeral=True)
+            await interaction.send("Bạn không thể sử dụng nút này!", ephemeral=True)
             return False
 
         return True
@@ -578,7 +419,7 @@ class FavModalImport(disnake.ui.Modal):
             )
             return
 
-        raise GenericError(f"Chế độ hiện tại chưa được thực hiện: {self.view.mode} | {type(self.view.mode)}")
+        raise GenericError(f"Chế độ hiện tại chưa được triển khai: {self.view.mode}")
 
     async def callback(self, inter: disnake.ModalInteraction, /) -> None:
 
@@ -778,7 +619,7 @@ class FavModalImport(disnake.ui.Modal):
                     "MAX_USER_INTEGRATIONS"]:
                     await inter.edit_original_message(
                         "Bạn không có đủ dung lượng để thêm tất cả tiện ích tích hợp vào tệp của mình...\n"
-                         f"Giới hạn hiện tại: {self.view.bot.config['MAX_USER_INTEGRATIONS']}\n"
+                         f"Giới hạn hiện tại: {self.view.bot.config['MAX_USER_INTEGrationS']}\n"
                          f"Số tích hợp đã lưu: {user_integrations}\n"
                          f"Bạn cần: {(json_size + user_integrations) - self.view.bot.config['MAX_USER_INTEGRATIONS']}")
                     return
@@ -915,10 +756,7 @@ class FavModalAdd(disnake.ui.Modal):
                 if name != self.name:
                     del self.view.data["fav_links"][self.name]
             except KeyError:
-                if len(self.view.data["fav_links"]) >= self.view.bot.config["MAX_USER_FAVS"]:
-                    await inter.edit_original_message(
-                        "**Không có không gian có sẵn để thêm yêu thích mới (loại bỏ một số và thử lại).**")
-                    return
+                pass
 
             self.view.data["fav_links"][name] = valid_url
 
@@ -975,9 +813,7 @@ class FavModalAdd(disnake.ui.Modal):
                 if name != self.name:
                     del self.view.guild_data["player_controller"]["fav_links"][self.name]
             except KeyError:
-                if len(self.view.guild_data["player_controller"]["fav_links"]) > 24:
-                    await inter.edit_original_message("**Không có không gian có sẵn để thêm yêu thích mới (loại bỏ một số và thử lại).**")
-                    return
+                pass
 
             self.view.guild_data["player_controller"]["fav_links"][name] = {'url': valid_url, "description": description}
 
@@ -993,58 +829,50 @@ class FavModalAdd(disnake.ui.Modal):
             await process_idle_embed(self.view.bot, guild, guild_data=self.view.guild_data)
 
         elif self.view.mode == ViewMode.integrations_manager:
-
-            try:
-                await inter.response.defer(ephemeral=True, with_message=True)
-            except:
-                pass
-
-            self.view.data = await self.view.bot.get_global_data(inter.author.id, db_name=DBModel.users)
-
-            if len(self.view.data["integration_links"]) >= self.view.bot.config["MAX_USER_FAVS"]:
-                await inter.edit_original_message(
-                    "**Không có không gian có sẵn để thêm tích hợp mới (xóa một số và thử lại).**")
-                return
-
             url = inter.text_values["user_integration_url"].strip()
 
             try:
                 url = URL_REG.findall(url)[0]
             except IndexError:
-                await inter.edit_original_message(
+                await inter.send(
                     embed=disnake.Embed(
                         description=f"**Không tìm thấy liên kết hợp lệ:** {url}",
                         color=disnake.Color.red()
-                    )
+                    ), ephemeral=True
                 )
                 return
 
             if (matches := spotify_regex_w_user.match(url)):
 
                 if not self.view.bot.spotify:
-                    await inter.edit_original_message(
+                    await inter.send(
                         embed=disnake.Embed(
                             description="**Hỗ trợ Spotify hiện không có sẵn...**",
                             color=disnake.Color.red()
-                        )
+                        ), ephemeral=True
                     )
                     return
 
                 url_type, user_id = matches.groups()
 
                 if url_type != "user":
-                    await inter.edit_original_message(
+                    await inter.send(
                         embed=disnake.Embed(
                             description=f"**Bạn phải sử dụng liên kết hồ sơ người dùng Spotify.** {url}",
                             color=disnake.Color.red()
-                        )
+                        ), ephemeral=True
                     )
                     return
 
                 try:
+                    await inter.response.defer(ephemeral=True)
+                except:
+                    pass
+
+                try:
                     result = await self.view.bot.loop.run_in_executor(None, lambda: self.view.bot.spotify.user(user_id))
                 except Exception as e:
-                    await inter.edit_original_message(
+                    await inter.send(
                         embed=disnake.Embed(
                             description="**Đã xảy ra lỗi khi lấy thông tin từ Spotify:** ```py\n"
                                         f"{repr(e)}```",
@@ -1055,7 +883,7 @@ class FavModalAdd(disnake.ui.Modal):
                     return
 
                 if not result:
-                    await inter.edit_original_message(
+                    await inter.send(
                         embed=disnake.Embed(
                             description="**Người dùng liên kết được cung cấp không có danh sách phát công khai...**",
                             color=self.view.bot.get_color()
@@ -1068,7 +896,7 @@ class FavModalAdd(disnake.ui.Modal):
             else:
 
                 if not self.view.bot.config["USE_YTDL"]:
-                    await inter.edit_original_message(
+                    await inter.send(
                         embed=disnake.Embed(
                             description="**Loại liên kết này hiện không được hỗ trợ...**",
                             color=self.view.bot.get_color()
@@ -1087,17 +915,22 @@ class FavModalAdd(disnake.ui.Modal):
                         group = match.group(1)
                         base_url = f"https://soundcloud.com/{group}/sets"
                     else:
-                        await inter.edit_original_message(
+                        await inter.send(
                             embed=disnake.Embed(
                                 description=f"**Liên kết được cung cấp không được hỗ trợ:** {url}",
                                 color=disnake.Color.red()
-                            )
+                            ), ephemeral=True
                         )
                         return
 
                     source = "[SC]:"
 
                 loop = self.view.bot.loop or asyncio.get_event_loop()
+
+                try:
+                    await inter.response.defer(ephemeral=True)
+                except:
+                    pass
 
                 try:
                     info = await loop.run_in_executor(None, lambda: self.view.bot.pool.ytdl.extract_info(base_url, download=False))
@@ -1132,6 +965,8 @@ class FavModalAdd(disnake.ui.Modal):
 
                 data = {"title": f"{source} {info['title']}", "url": info["original_url"]}
 
+            self.view.data = await self.view.bot.get_global_data(inter.author.id, db_name=DBModel.users)
+
             title = fix_characters(data['title'], 80)
 
             self.view.data["integration_links"][title] = data['url']
@@ -1164,7 +999,7 @@ class FavModalAdd(disnake.ui.Modal):
 class FavMenuView(disnake.ui.View):
 
     def __init__(self, bot: BotCore, ctx: Union[disnake.AppCmdInter, CustomContext], data: dict, log: str = "",
-                 prefix="", mode: str = ViewMode.fav_manager, is_owner=False):
+                 prefix="", mode: str = ViewMode.fav_manager):
         super().__init__(timeout=180)
         self.mode = mode
         self.bot = bot
@@ -1177,10 +1012,9 @@ class FavMenuView(disnake.ui.View):
         self.log = log
         self.prefix = prefix
         self.components_updater_task = bot.loop.create_task(self.auto_update())
-        self.is_owner = is_owner
 
         if not self.guild:
-            for b in self.bot.pool.get_guild_bots(ctx.guild_id):
+            for b in self.bot.pool.bots:
                 guild = b.get_guild(ctx.guild_id)
                 if guild:
                     self.guild = guild
@@ -1189,6 +1023,10 @@ class FavMenuView(disnake.ui.View):
     def update_components(self):
 
         self.clear_items()
+
+        if not self.guild:
+            self.bot.loop.create_task(self.on_timeout())
+            return
 
         mode_select = disnake.ui.Select(
             options=[
@@ -1203,9 +1041,9 @@ class FavMenuView(disnake.ui.View):
                                      default=self.mode == ViewMode.integrations_manager)
             )
 
-        if self.guild and (self.ctx.author.guild_permissions.manage_guild or self.is_owner):
+        if self.ctx.author.guild_permissions.manage_guild:
             mode_select.options.insert(1, disnake.SelectOption(label="Trình quản lý danh sách phát trên máy chủ",
-                                                               value=f"fav_view_mode_{ViewMode.guild_fav_manager}", emoji="📌",
+                                                               value="fav_view_mode_1", emoji="📌",
                                                                default=self.mode == ViewMode.guild_fav_manager))
 
         if len(mode_select.options) < 2:
@@ -1219,21 +1057,19 @@ class FavMenuView(disnake.ui.View):
             if self.data["fav_links"]:
                 fav_select = disnake.ui.Select(options=[
                     disnake.SelectOption(label=k, emoji=music_source_emoji_url(v)) for k, v in
-                    list(self.data["fav_links"].items())[:25] # TODO: Lidar depois com os dados existentes que excedem a quantidade permitida
+                    self.data["fav_links"].items()
                 ], min_values=1, max_values=1)
                 fav_select.options[0].default = True
                 self.current = fav_select.options[0].label
                 fav_select.callback = self.select_callback
                 self.add_item(fav_select)
 
-        elif self.mode == ViewMode.guild_fav_manager and self.guild:
+        elif self.mode == ViewMode.guild_fav_manager:
 
             bots_in_guild = []
 
-            for b in sorted(self.bot.pool.get_guild_bots(self.guild.id), key=lambda b: b.identifier):
+            for b in sorted(self.bot.pool.bots, key=lambda b: b.identifier):
                 if b.bot_ready and b.user in self.guild.members:
-                    if not bots_in_guild:
-                        self.bot = b
                     bots_in_guild.append(disnake.SelectOption(emoji="🎶",
                                                               label=f"Bot: {b.user.display_name}"[:25],
                                                               value=f"bot_select_{b.user.id}",
@@ -1248,7 +1084,7 @@ class FavMenuView(disnake.ui.View):
                 fav_select = disnake.ui.Select(options=[
                     disnake.SelectOption(label=k, emoji=music_source_emoji_url(v['url']),
                                          description=v.get("description")) for k, v in
-                    list(self.guild_data["player_controller"]["fav_links"].items())[:25] # TODO: Lidar depois com os dados existentes que excedem a quantidade permitida
+                    self.guild_data["player_controller"]["fav_links"].items()
                 ], min_values=1, max_values=1)
                 fav_select.options[0].default = True
                 self.current = fav_select.options[0].label
@@ -1260,9 +1096,7 @@ class FavMenuView(disnake.ui.View):
             if self.data["integration_links"]:
 
                 integration_select = disnake.ui.Select(options=[
-                    disnake.SelectOption(
-                        label=k[5:], value=k,
-                        emoji=music_source_emoji_id(k)) for k, v in list(self.data["integration_links"].items())[:25] # TODO: Lidar depois com os dados existentes que excedem a quantidade permitida
+                    disnake.SelectOption(label=k, emoji=music_source_emoji_id(k)) for k, v in self.data["integration_links"].items()
                 ], min_values=1, max_values=1)
                 integration_select.options[0].default = True
                 self.current = integration_select.options[0].label
@@ -1425,7 +1259,7 @@ class FavMenuView(disnake.ui.View):
                     return f"` {index} ` [`{name}`]({url})"
 
                 embed.description = f"**Yêu thích hiện tại của bạn:**\n\n" + "\n".join(
-                    f"> {format_fav(n+1, d)}" for n, d in enumerate(self.data["fav_links"].items())
+                    f"> ` {n + 1} ` [`{f[0]}`]({f[1]})" for n, f in enumerate(self.data["fav_links"].items())
                 )
 
             embed.add_field(name="**Cách sử dụng?**", inline=False,
@@ -1451,9 +1285,9 @@ class FavMenuView(disnake.ui.View):
                     if e:
                         return f"` {index} ` {e} [`{name}`]({data['url']})"
                     return f"` {index} ` [`{name}`]({data['url']})"
-
-                embed.description = f"**Liên kết không hoạt động. {self.bot.user.mention}:**\n\n" + "\n".join(
-                    f"> {format_gfav(n+1, d)}" for n, d in enumerate(self.guild_data["player_controller"]["fav_links"].items())
+                
+                embed.description = f"**Liên kết ở trên không có bot {self.bot.user.mention}:**\n\n" + "\n".join(
+                    f"> ` {n + 1} ` [`{f[0]}`]({f[1]['url']})" for n, f in enumerate(self.guild_data["player_controller"]["fav_links"].items())
                 )
 
             embed.add_field(name="**Làm thế nào để bạn sử dụng chúng?**", inline=False,
@@ -1466,8 +1300,7 @@ class FavMenuView(disnake.ui.View):
             )
 
             if not self.data["integration_links"]:
-                embed.description = "**Bạn không có tích hợp tại thời điểm này (nhấp vào nút Thêm bên dưới).**"
-
+                embed.description = "**Bạn hiện không có tiện ích tích hợp nào (nhấp vào nút thêm bên dưới).**"
             else:
                 def format_itg(bot, index, data):
                     name, url = data
@@ -1475,9 +1308,9 @@ class FavMenuView(disnake.ui.View):
                     if e:
                         return f"` {index} ` {e} [`{name[5:]}`]({url})"
                     return f"` {index} ` [`{name}`]({url})"
-
+                
                 embed.description = f"**Tích hợp hiện tại của bạn:**\n\n" + "\n".join(
-                    f"> {format_itg(self.bot, n+1, d)}" for n, d in enumerate(self.data["integration_links"].items()))
+                    f"> ` {n + 1} ` [`{f[0]}`]({f[1]})" for n, f in enumerate(self.data["integration_links"].items()))
 
                 embed.add_field(name="**Làm cách nào để phát danh sách phát tích hợp?**", inline=False,
                                  value=f"* Sử dụng lệnh {cmd} (chọn tích hợp trong tự động hoàn thành tìm kiếm)\n"
@@ -1612,7 +1445,7 @@ class FavMenuView(disnake.ui.View):
     async def bot_select(self, inter: disnake.MessageInteraction):
 
         value = int(inter.values[0][11:])
-        for b in self.bot.pool.get_guild_bots(inter.guild_id):
+        for b in self.bot.pool.bots:
             try:
                 if b.user.id == value:
                     self.bot = b
@@ -1918,7 +1751,7 @@ class SkinSettingsButton(disnake.ui.View):
 
 class ViewModal(disnake.ui.Modal):
 
-    def __init__(self, view: Union[SkinEditorMenu, QueueInteraction], title: str, components: List[disnake.TextInput], custom_id: str):
+    def __init__(self, view: SkinEditorMenu, title: str, components: List[disnake.TextInput], custom_id: str):
         self.view = view
         super().__init__(title=title, components=components, custom_id=custom_id)
     async def callback(self, inter: disnake.ModalInteraction, /) -> None:
@@ -1994,26 +1827,16 @@ class SetStageTitle(disnake.ui.View):
             )
         )
 
-    def build_embeds(self):
+    def build_embed(self):
 
-        embeds = []
-
-        color = self.bot.get_color(self.guild.me)
-
-        embeds.append(
-            disnake.Embed(
-                description="### Đặt trạng thái tự động trên kênh giọng nói hoặc giai đoạn\n"
-                            "**Placeholders:** `(Ít nhất một trình giữ chỗ phải được đưa vào thông báo trạng thái)`\n"
-                            f"{self.placeholder_text}",
-                color=color)
-        )
+        txt = "### Xác định trạng thái tự động của kênh hoặc hộp thoại\n"
 
         if self.data['voice_channel_status']:
-            embeds.append(
-                disnake.Embed(title="**Mô hình vĩnh viễn hiện tại:**", description=self.data['voice_channel_status'])
-            )
+            txt += f"<:pen:1155781725939572746> **Template hiện tại đang sử dụng**\n{self.data['voice_channel_status']}\n"
 
-        return embeds
+        txt += f"<:IconModHQAlert:1155781703076413491> **Lưu ý:** `(Ít nhất phải có một giá trị ở dưới bảng dưới đây được thêm vào)`\n{self.placeholder_text}"
+
+        return disnake.Embed(description=txt, color=self.bot.get_color(self.guild.me))
 
     async def modal_handler(self, inter: disnake.ModalInteraction):
 
@@ -2021,30 +1844,13 @@ class SetStageTitle(disnake.ui.View):
 
         if inter.text_values["status_voice_value"] and not any(
                 p in inter.text_values["status_voice_value"] for p in self.placeholders):
-            await inter.send("**Bạn nên sử dụng ít nhất một trình giữ chỗ hợp lệ ...**", ephemeral=True)
+            await inter.send("**Bạn phải dùng một giá trị hợp lệ*", ephemeral=True)
             return
 
         if inter.data.custom_id == "status_voice_channel_perm":
 
             if self.data["voice_channel_status"] == inter.text_values["status_voice_value"]:
-                await inter.send("**Tình trạng vĩnh viễn hiện tại giống như ...**", ephemeral=True)
-                return
-
-            guild: Optional[disnake.Guild] = None
-
-            for b in self.bot.pool.get_guild_bots(inter.guild_id):
-                if (guild:=b.get_guild(inter.guild_id)):
-                    break
-
-            if not guild:
-                await inter.send("**Không có bot có sẵn cho máy chủ, thêm ít nhất một bằng cách nhấp vào nút bên dưới.**",
-                                components=[disnake.ui.Button(custom_id="bot_invite", label="Thêm các bot")], ephemeral=True)
-                return
-
-            inter.author = guild.get_member(inter.author.id)
-
-            if not inter.author.guild_permissions.manage_guild:
-                await inter.send("**Bạn không có quyền quản lý máy chủ để thay đổi trạng thái của kênh thoại**", ephemeral=True)
+                await inter.send("**Trạng thái vĩnh viễn hiện tại đã được thiết lập..**", ephemeral=True)
                 return
 
             self.data["voice_channel_status"] = inter.text_values["status_voice_value"]
@@ -2053,25 +1859,20 @@ class SetStageTitle(disnake.ui.View):
 
             await self.bot.update_global_data(inter.guild_id, self.data, db_name=DBModel.guilds)
 
-            for b in self.bot.pool.get_guild_bots(inter.guild_id):
+            for b in self.bot.pool.bots:
                 try:
                     p = b.music.players[inter.guild_id]
                 except KeyError:
                     continue
-                p.stage_title_event = bool(inter.text_values["status_voice_value"])
+                p.stage_title_event = True
                 p.stage_title_template = inter.text_values["status_voice_value"]
                 p.start_time = disnake.utils.utcnow()
                 p.set_command_log(
-                    text=f"{inter.author.mention} " + ("ativou" if inter.text_values["status_voice_value"] else "desativou") + " o status automático",
+                    text=("ativou" if inter.text_values["status_voice_value"] else "desativou") + "o status automático",
                     emoji="📢",
                 )
                 p.update = True
-
-                if p.stage_title_event:
-                    await p.update_stage_topic()
-                else:
-                    await p.update_stage_topic(clear=True)
-
+                await p.update_stage_topic()
                 await p.process_save_queue()
                 await asyncio.sleep(3)
 
@@ -2079,44 +1880,24 @@ class SetStageTitle(disnake.ui.View):
 
         elif inter.data.custom_id == "status_voice_channel_temp":
 
-            player: Optional[LavalinkPlayer] = None
-
-            for bot in self.bot.pool.get_guild_bots(inter.guild_id):
-                try:
-                    player = bot.music.players[inter.guild_id]
-                except KeyError:
-                    continue
-
-                if inter.author.id not in player.guild.me.voice.channel.voice_states:
-                    continue
-
-                break
-
-            if not player:
-                await inter.send("**Tôi không chơi nhạc trên kênh giọng nói/sân khấu ...**", ephemeral=True)
+            try:
+                player: LavalinkPlayer = self.bot.music.players[inter.guild_id]
+            except KeyError:
+                await inter.send("**Tôi hiện không phát nhạc trên kênh giọng nói/sân khấu..**", ephemeral=True)
                 return
 
-            inter.author = player.guild.get_member(inter.author.id)
-
-            if not inter.author.guild_permissions.manage_guild:
-                await inter.send("Bạn không có quyền quản lý máy chủ để thay đổi trạng thái của kênh giọng nói", ephemeral=True)
-                return
-
-            player.stage_title_event = bool(inter.text_values["status_voice_value"])
+            player.stage_title_event = True
             player.stage_title_template = inter.text_values["status_voice_value"]
             player.start_time = disnake.utils.utcnow()
 
             await inter.response.defer(ephemeral=True)
 
-            if player.stage_title_event:
-                await player.update_stage_topic()
-            else:
-                await player.update_stage_topic(clear=True)
+            await player.update_stage_topic()
 
             await player.process_save_queue()
 
             player.set_command_log(
-                text=f"{inter.author.mention} " + ("kích hoạt" if inter.text_values["status_voice_value"] else "vô hiệu") + " trạng thái tự động",
+                text=("kích hoạt" if inter.text_values["status_voice_value"] else "vô hiệu") + " trạng thái tự động",
                 emoji="📢",
             )
 
@@ -2356,14 +2137,14 @@ class SkinEditorMenu(disnake.ui.View):
     def build_embeds(self) -> dict:
 
         player = None
-        for b in self.bot.pool.get_guild_bots(self.ctx.guild_id):
+        for b in self.bot.pool.bots:
             try:
                 player = b.music.players[self.ctx.guild_id]
                 break
             except KeyError:
                 continue
 
-        data = skin_converter(self.message_data, guild=self.guild, ctx=self.ctx, player=player)
+        data = skin_converter(self.message_data, ctx=self.ctx, player=player)
         return {"content": data.get("content", ""), "embeds": data.get("embeds", [])}
 
     async def embed_select_callback(self, inter: disnake.MessageInteraction):
@@ -2420,7 +2201,7 @@ class SkinEditorMenu(disnake.ui.View):
                         label="Màu nhúng:",
                         placeholder="Ví dụ: #000fff hoặc {guild.color}",
                         custom_id="skin_embed_color",
-                        max_length=15,
+                        max_length=7,
                         required=False
                     ),
                     disnake.ui.TextInput(
@@ -2768,7 +2549,7 @@ class SkinEditorMenu(disnake.ui.View):
                 await inter.edit_original_message(view=self, **self.build_embeds())
         except Exception as e:
             traceback.print_exc()
-            await inter.send(f"**Xảy ra lỗi khi xử lý tin nhắn:** ```py\n{repr(e)}```", ephemeral=True)
+            await inter.send(f"**Đã xảy ra lỗi khi xử lý tin nhắn:** ```py\n{repr(e)}```")
 
     async def modal_handler(self, inter: disnake.ModalInteraction):
 
@@ -2939,7 +2720,7 @@ class SkinEditorMenu(disnake.ui.View):
 
             await self.bot.update_global_data(id_=inter.guild_id, data=self.global_data, db_name=DBModel.guilds)
 
-            for bot in self.bot.pool.get_guild_bots(inter.guild_id):
+            for bot in self.bot.pool.bots:
 
                 try:
                     player = bot.music.players[inter.guild_id]
@@ -2995,132 +2776,3 @@ class SkinEditorMenu(disnake.ui.View):
 
         self.update_components()
         await self.update_message(inter)
-
-class SelectBotVoice(disnake.ui.View):
-
-    def __init__(
-            self,
-            inter: Union[disnake.AppCmdInter, disnake.MessageInteraction, disnake.ModalInteraction, CustomContext],
-            guild: disnake.Guild, freebots: List[BotCore]
-    ):
-        super().__init__(timeout=45)
-        self.inter = inter
-        self.message: Optional[disnake.Message] = None
-        self.voice_channel = inter.author.voice.channel
-        self.guild = guild
-        self.build_interactions(freebots)
-        self.bot: Optional[BotCore] = None
-        self.status = None
-
-    def build_interactions(self, freebots: List[BotCore] = None):
-
-        self.clear_items()
-
-        bot_select_opts = []
-
-        if freebots:
-            bot_select_opts.extend([disnake.SelectOption(label=b.user.display_name, value=f"bot_voice_{b.user.id}") for b in freebots])
-
-        else:
-            for b in self.inter.bot.pool.get_guild_bots(self.guild.id):
-
-                if not b.bot_ready:
-                    continue
-
-                guild = b.get_guild(self.inter.guild_id)
-
-                if not guild:
-                    continue
-
-                player: LavalinkPlayer = b.music.players.get(self.inter.guild_id)
-
-                if player and self.inter.author.id not in player.last_channel.voice_states:
-                    continue
-
-                bot_select_opts.append(disnake.SelectOption(label=b.user.display_name, value=f"bot_voice_{b.user.id}"))
-
-        if not bot_select_opts:
-            self.status = False
-            self.stop()
-            return
-
-        bot_select = disnake.ui.Select(min_values=0, max_values=1, options=bot_select_opts)
-        bot_select.callback = self.bot_select_callback
-        self.add_item(bot_select)
-
-        refresh_btn = disnake.ui.Button(label="Làm mới danh sách", emoji="🔄", style=disnake.ButtonStyle.blurple)
-        refresh_btn.callback = self.reload_callback
-        self.add_item(refresh_btn)
-
-        cancel_btn = disnake.ui.Button(label="Hủy bỏ", emoji="❌")
-        cancel_btn.callback = self.cancel_callback
-        self.add_item(cancel_btn)
-
-    async def update_message(self):
-        self.build_interactions()
-        if self.message:
-            await self.message.edit(view=self)
-        else:
-            await self.inter.edit_original_message(view=self)
-
-    async def reload_callback(self, inter: disnake.MessageInteraction):
-        self.build_interactions()
-        await inter.response.edit_message(view=self)
-
-    async def cancel_callback(self, inter: disnake.MessageInteraction):
-        self.status = False
-        self.inter = inter
-        self.stop()
-
-    async def bot_select_callback(self, inter: disnake.MessageInteraction):
-
-        bot_id = int(inter.values[0][10:])
-
-        try:
-            bot = [b for b in self.inter.bot.pool.get_guild_bots(inter.guild_id) if b.bot_ready and b.user.id == bot_id][0]
-        except IndexError:
-            await inter.send(f"<@{bot_id}> không còn có mặt trên máy chủ...", ephemeral=True)
-            await self.update_message()
-            return
-
-        guild = bot.get_guild(inter.guild_id)
-
-        if not guild:
-            await inter.send(f"{bot.user.mention} không còn trên máy chủ...", ephemeral=True)
-            await self.update_message()
-            return
-
-        player = bot.music.players.get(inter.guild_id)
-
-        if player:
-
-            try:
-                vc = player.guild.me.voice.channel
-            except AttributeError:
-                vc = player.last_channel
-
-            if not vc:
-                await inter.send(
-                    f"{bot.user.mention} Có một người chơi hoạt động nhưng không được kết nối với kênh thoại..",
-                    ephemeral=True)
-                await self.update_message()
-                return
-
-            if inter.author.id not in vc.voice_states:
-                await inter.send(f"{bot.user.mention} đã được sử dụng trên kênh {vc.mention}", ephemeral=True)
-                await self.update_message()
-                return
-
-        inter.author = guild.get_member(inter.author.id)
-
-        try:
-            inter.music_guild = guild
-            inter.music_bot = bot
-        except AttributeError:
-            pass
-
-        self.bot = bot
-        self.inter = inter
-        self.guild = guild
-        self.status = True
-        self.stop()

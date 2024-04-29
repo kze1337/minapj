@@ -14,7 +14,6 @@ import dotenv
 import humanize
 from aiohttp import ClientSession
 from disnake.ext import commands
-from disnake.http import Route
 
 import wavelink
 from config_loader import DEFAULT_CONFIG, load_config
@@ -22,7 +21,7 @@ from utils.client import BotCore
 from utils.db import DBModel
 from utils.music.checks import check_voice, check_requester_channel, can_connect
 from utils.music.errors import GenericError
-from utils.others import CustomContext, string_to_file, token_regex, CommandArgparse
+from utils.others import sync_message, CustomContext, string_to_file, token_regex, CommandArgparse, get_inter_guild_data
 from utils.owner_panel import panel_command, PanelView
 
 
@@ -45,12 +44,11 @@ async def run_command(cmd: str):
         cmd, stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
-        env=os.environ
     )
     stdout, stderr = await p.communicate()
     r = ShellResult(p.returncode, stdout, stderr)
     if r.status != 0:
-        raise Exception(f"{r.stderr or r.stdout}\n\nStatus Code: {r.status}")
+        raise GenericError(f"{r.stderr or r.stdout}\n\nStatus Code: {r.status}")
     return str(r.stdout)
 
 
@@ -90,7 +88,7 @@ class Owner(commands.Cog):
             "git init",
             f'git remote add origin {self.bot.config["SOURCE_REPO"]}',
             'git fetch origin',
-            'git --work-tree=. checkout -b main -f --track origin/main'
+            'git checkout -b main -f --track origin/main'
         ]
         self.owner_view: Optional[PanelView] = None
         self.extra_hints = bot.config["EXTRA_HINTS"].split("||")
@@ -114,85 +112,58 @@ class Owner(commands.Cog):
 
         await ctx.send(
             embed=disnake.Embed(
-                description="**Tệp Lavalink.ini đã được tải xuống thành công!\n"
-                            "Bạn sẽ cần khởi động lại để sử dụng các máy chủ của tệp này.**"
+                description="**Tệp lavalink.ini đã được tải xuống thành công!\n"
+                             "Tôi cần phải tự khởi động lại để sử dụng các máy chủ trong tệp này.**"
             )
         )
 
     updatelavalink_flags = CommandArgparse()
+    updatelavalink_flags.add_argument('-force', '--force', action='store_true',
+                                      help="Bỏ qua việc chạy/sử dụng máy chủ LOCAL.")
     updatelavalink_flags.add_argument('-yml', '--yml', action='store_true',
-                                      help="Tải tập tin application.yml.")
+                                      help="Tải xuống tệp application.yml.")
     updatelavalink_flags.add_argument("-resetids", "-reset", "--resetids", "--reset",
-                                      help="Đặt lại ID bài hát (hữu ích để tránh các vấn đề với một số "
-                                           "Lavaplayer/Lavalink thay đổi).", action="store_true")
+                                      help="Đặt lại thông tin id bài hát (hữu ích để tránh sự cố với một số bài hát" 
+                                            "thay đổi lavaplayer/lavalink).", action="store_true")
 
     @commands.is_owner()
-    @commands.max_concurrency(1, commands.BucketType.default)
-    @commands.command(hidden=True, aliases=["restartll", "rtll", "rll"])
-    async def restartlavalink(self, ctx: CustomContext):
+    @commands.max_concurrency(1, commands.BucketType.user)
+    @commands.command(hidden=True, aliases=["ull", "updatell", "llupdate", "llu"], extras={"flags": updatelavalink_flags})
+    async def updatelavalink(self, ctx: CustomContext, flags: str = ""):
 
-        if not self.bot.pool.lavalink_instance:
-            raise GenericError("**Máy chủ cục bộ không được sử dụng!**")
+        args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
+
+        node: Optional[wavelink.Node] = None
+
+        for bot in self.bot.pool.bots:
+            try:
+                node = bot.music.nodes["LOCAL"]
+                break
+            except KeyError:
+                continue
+
+        if not node and not args.force:
+            raise GenericError("**Máy chủ LOCAL không được sử dụng!**")
+
+        download_urls = [self.bot.config["LAVALINK_FILE_URL"]]
+
+        if args.yml:
+            download_urls.append("https://github.com/zRitsu/LL-binaries/releases/download/0.0.1/application.yml")
+
+        async with ctx.typing():
+
+            for url in download_urls:
+                async with ClientSession() as session:
+                    async with session.get(url) as r:
+                        lavalink_jar = await r.read()
+                        with open(url.split("/")[-1], "wb") as f:
+                            f.write(lavalink_jar)
 
         await self.bot.pool.start_lavalink()
 
         await ctx.send(
             embed=disnake.Embed(
-                description="**Khởi động lại máy chủ cục bộ Lavalink.**",
-                color=self.bot.get_color(ctx.guild.me)
-            )
-        )
-
-    @commands.is_owner()
-    @commands.max_concurrency(1, commands.BucketType.default)
-    @commands.command(hidden=True, aliases=["ull", "updatell", "llupdate", "llu"], extras={"flags": updatelavalink_flags})
-    async def updatelavalink(self, ctx: CustomContext, flags: str = ""):
-
-        if not self.bot.pool.lavalink_instance:
-            raise GenericError("**Máy chủ cục bộ không được sử dụng!**")
-
-        args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
-
-        try:
-            self.bot.pool.lavalink_instance.kill()
-        except:
-            pass
-
-        async with ctx.typing():
-
-            await asyncio.sleep(1.5)
-
-            if os.path.isfile("./Lavalink.jar"):
-                os.remove("./Lavalink.jar")
-
-            if args.yml and os.path.isfile("./application.yml"):
-                os.remove("./application.yml")
-
-            await self.bot.pool.start_lavalink()
-
-        if args.resetids:
-            for b in self.bot.pool.bots:
-                try:
-                    node = b.music.nodes["LOCAL"]
-                except KeyError:
-                    continue
-                for p in node.players.values():
-                    for t in p.queue:
-                        t.id = None
-                        t.info["id"] = None
-                for p in node.players.values():
-                    for t in p.played:
-                        t.id = None
-                        t.info["id"] = None
-                for p in node.players.values():
-                    for t in p.queue_autoplay:
-                        t.id = None
-                        t.info["id"] = None
-
-        await ctx.send(
-            embed=disnake.Embed(
-                description="**Tệp Lavalink.jar sẽ được cập nhật"
-                             "và máy chủ Lavalink sẽ được khởi động lại.**",
+                description="**File Lavalink.jar đã được cập nhật thành công!**",
                 color=self.bot.get_color(ctx.guild.me)
             )
         )
@@ -215,7 +186,7 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @panel_command(aliases=["rd", "recarregar"], description="Tải lại các Extensions", emoji="🔄",
                    alt_name="Nạp lại các Extensions.")
-    async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction], *modules):
+    async def reload(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
 
         for m in list(sys.modules):
             if not m.startswith("utils.music.skins."):
@@ -225,21 +196,19 @@ class Owner(commands.Cog):
             except:
                 continue
 
-        modules = [f"{m}.py" for m in modules]
-
-        data = self.bot.load_modules(modules)
+        data = self.bot.load_modules()
         self.bot.load_skins()
 
         await self.bot.sync_app_commands(force=self.bot == self.bot.pool.controller_bot)
 
-        for bot in set(self.bot.pool.get_all_bots() + [self.bot.pool.controller_bot]):
+        for bot in self.bot.pool.bots:
 
             if bot.user.id != self.bot.user.id:
                 bot.load_skins()
-                bot.load_modules(modules)
+                bot.load_modules()
                 await bot.sync_app_commands(force=bot == self.bot.pool.controller_bot)
 
-        self.bot.sync_command_cooldowns(force=True)
+        self.bot.sync_command_cooldowns()
 
         txt = ""
 
@@ -268,8 +237,8 @@ class Owner(commands.Cog):
 
     @commands.is_owner()
     @commands.max_concurrency(1, commands.BucketType.default)
-    @panel_command(aliases=["up", "atualizar"], description="Cập nhật mã của tôi bằng Git.",
-                   emoji="<:git:944873798166020116>", alt_name="Cập nhật bot", extras={"flags": update_flags})
+    @panel_command(aliases=["up", "atualizar"], description="Cập nhật mã nguồn của tôi bằng git.",
+                   emoji="<:git:944873798166020116>", alt_name="Cập nhật Bot", extras={"flags": update_flags})
     async def update(self, ctx: Union[CustomContext, disnake.MessageInteraction], *,
                      opts: str = ""):  # TODO: Rever se há alguma forma de usar commands.Flag sem um argumento obrigatório, ex: --pip.
 
@@ -298,50 +267,72 @@ class Owner(commands.Cog):
         except:
             pass
 
-        if args.force or not os.path.exists(os.environ["GIT_DIR"]):
-            out_git += await self.cleanup_git(force=args.force)
+        update_git = True
+        rename_git_bak = False
 
-        try:
-            await run_command("git --work-tree=. reset --hard")
-        except:
-            pass
+        if args.force or not os.path.exists("./.git"):
 
-        try:
-            pull_log = await run_command("git --work-tree=. pull --allow-unrelated-histories -X theirs")
-            if "Already up to date" in pull_log:
-                raise GenericError("**Tôi đã cài đặt các bản cập nhật cuối cùng...**")
-            out_git += pull_log
+            if rename_git_bak:=os.path.exists("./.gitbak") and os.environ.get("HOSTNAME") == "squarecloud.app":
+                pass
+            else:
+                update_git = False
+                out_git += await self.cleanup_git(force=args.force)
 
-        except GenericError as e:
-            raise e
+        if update_git:
 
-        except Exception as e:
+            if rename_git_bak or os.environ.get("HOSTNAME") == "squarecloud.app" and os.path.isdir("./.gitbak"):
+                try:
+                    shutil.rmtree("./.git")
+                except:
+                    pass
+                os.rename("./.gitbak", "./.git")
 
-            if "Already up to date" in str(e):
-                raise GenericError("Tôi đã cài đặt các bản cập nhật cuối cùng...")
+            try:
+                await run_command("git reset --hard")
+            except:
+                pass
 
-            elif not "Fast-forward" in str(e):
-                out_git += await self.cleanup_git(force=True)
+            try:
+                pull_log = await run_command("git pull --allow-unrelated-histories -X theirs")
+                if "Already up to date" in pull_log:
+                    raise GenericError("**Tôi đã cài đặt bản cập nhật mới nhất...**")
+                out_git += pull_log
 
-            elif "Need to specify how to reconcile divergent branches" in str(e):
-                out_git += await run_command("git --work-tree=. rebase --no-ff")
+            except GenericError as e:
+                raise e
 
-        commit = ""
+            except Exception as e:
 
-        for l in out_git.split("\n"):
-            if l.startswith("Updating"):
-                commit = l.replace("Updating ", "").replace("..", "...")
-                break
+                if "Already up to date" in str(e):
+                    raise GenericError("Tôi đã cài đặt các bản cập nhật mới nhất...")
 
-        data = (await run_command(f"git --work-tree=. log {commit} {self.git_format}")).split("\n")
+                elif not "Fast-forward" in str(e):
+                    out_git += await self.cleanup_git(force=True)
 
-        git_log += format_git_log(data)
+                elif "Need to specify how to reconcile divergent branches" in str(e):
+                    out_git += await run_command("git rebase --no-ff")
 
-        self.bot.pool.commit = commit
+            commit = ""
 
-        text = "`Bạn sẽ cần phải khởi động lại sau khi thay đổi.`"
+            for l in out_git.split("\n"):
+                if l.startswith("Updating"):
+                    commit = l.replace("Updating ", "").replace("..", "...")
+                    break
 
-        txt = f"`✅` **[Cập nhật thành công!]({self.bot.pool.remote_git_url}/commits/main)**"
+            data = (await run_command(f"git log {commit} {self.git_format}")).split("\n")
+
+            git_log += format_git_log(data)
+
+        if os.environ.get("HOSTNAME") == "squarecloud.app":
+            try:
+                shutil.rmtree("./.gitbak")
+            except:
+                pass
+            shutil.copytree("./.git", "./.gitbak")
+
+        text = "`Tôi sẽ cần phải khởi động lại sau khi thay đổi.`"
+
+        txt = f"`✅` **[Cập nhật hoàn tất thành công!]({self.bot.pool.remote_git_url}/commits/main)**"
 
         if git_log:
             txt += f"\n\n{self.format_log(git_log[:10])}"
@@ -373,7 +364,7 @@ class Owner(commands.Cog):
         if args.pip:
 
             embed = disnake.Embed(
-                description="**Cài đặt cơ sở....**",
+                description="**Đang cài đặt các phần phụ thuộc.\nVui lòng đợi...**",
                 color=self.bot.get_color(ctx.guild.me)
             )
 
@@ -381,7 +372,7 @@ class Owner(commands.Cog):
 
             await run_command(cmd)
 
-            embed.description = "**Các phụ thuộc đã được cài đặt thành công!**"
+            embed.description = "**Các phần phụ thuộc đã được cài đặt thành công!**"
 
             await msg.edit(embed=embed)
 
@@ -409,7 +400,7 @@ class Owner(commands.Cog):
                     embed=disnake.Embed(
                         description="**Bạn sẽ cần cập nhật các phần phụ thuộc bằng lệnh "
                                      "bên dưới trong thiết bị đầu cuối:**\n"
-                                    f"```sh\n{txt}{cmd}```\nhoặc sử dụng lệnh: "
+                                    f"```sh\n{txt}{cmd}```\nou usar usar o comando: "
                                     f"```ansi\n[34;1m{prefix}update --force --pip[0m``` \n"
                                     f"**Lưu ý:** Tùy thuộc vào hosting (hoặc nếu bạn không có 150mb RAM trống "
                                      f" và 0,5vCPU), bạn phải gửi tệp require.txt thay vì "
@@ -467,7 +458,7 @@ class Owner(commands.Cog):
 
         if force:
             try:
-                shutil.rmtree(os.environ["GIT_DIR"])
+                shutil.rmtree("./.git")
             except FileNotFoundError:
                 pass
 
@@ -490,8 +481,8 @@ class Owner(commands.Cog):
                    alt_name="Cập nhật mới nhất", hidden=False)
     async def updatelog(self, ctx: Union[CustomContext, disnake.MessageInteraction], amount: int = 10):
 
-        if not os.path.isdir(os.environ["GIT_DIR"]):
-            raise GenericError("Không có thông tin cập nhật trong thư mục bot...\nLưu ý: Sử dụng lệnh cập nhật.")
+        if not os.path.isdir("./.git"):
+            raise GenericError("Không có kho lưu trữ nào được khởi động trong thư mục bot...\nLưu ý: Sử dụng lệnh cập nhật.")
 
         if not self.bot.pool.remote_git_url:
             self.bot.pool.remote_git_url = self.bot.config["SOURCE_REPO"][:-4]
@@ -520,6 +511,10 @@ class Owner(commands.Cog):
     @commands.is_owner()
     @commands.command(hidden=True, aliases=["menu", "console"])
     async def panel(self, ctx: CustomContext):
+        if commands.bot_has_guild_permissions(manage_messages=True):
+            await ctx.message.delete()
+        else:
+            pass
 
         embed =disnake.Embed(
             title="<:ll:1138141608924172339> System console || Hackermode ON.",
@@ -531,6 +526,44 @@ class Owner(commands.Cog):
         embed.set_thumbnail("https://media.discordapp.net/stickers/1039992459209490513.png")
         embed.set_footer(text="Nhấp vào một nhiệm vụ bạn muốn thực hiện.")
         await ctx.send(embed=embed, view=PanelView(self.bot))
+
+    @commands.has_guild_permissions(manage_guild=True)
+    @commands.command(description="Đồng bộ hóa các lệnh trên máy chủ.", hidden=True)
+    async def syncguild(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
+
+        embed = disnake.Embed(
+            color=self.bot.get_color(ctx.guild.me),
+            description="**Lệnh này không còn cần thiết để được sử dụng (việc đồng bộ hóa các lệnh bây giờ "
+                        f"Nó là tự động).**\n\n{sync_message(self.bot)}"
+        )
+
+        await ctx.send(embed=embed)
+
+    @commands.is_owner()
+    @panel_command(aliases=["sync"], description="Đồng bộ hóa các lệnh thanh theo cách thủ công.",
+                   emoji="<:slash:944875586839527444>",
+                   alt_name="Đồng bộ hóa các lệnh bằng tay.")
+    async def synccmds(self, ctx: Union[CustomContext, disnake.MessageInteraction]):
+
+        if self.bot.config["AUTO_SYNC_COMMANDS"] is True:
+            raise GenericError(
+                f"**Điều này không thể được sử dụng với đồng bộ hóa tự động được kích hoạt...**\n\n{sync_message(self.bot)}")
+
+        await self.bot._sync_application_commands()
+
+        txt = f"**Các lệnh thanh đã được đồng bộ hóa thành công! <:ll:1138141608924172339>**\n\n{sync_message(self.bot)}"
+
+        if isinstance(ctx, CustomContext):
+
+            embed = disnake.Embed(
+                color=self.bot.get_color(ctx.guild.me),
+                description=txt
+            )
+
+            await ctx.send(embed=embed, view=self.owner_view)
+
+        else:
+            return txt
 
     @commands.has_guild_permissions(manage_guild=True)
     @commands.cooldown(1, 10, commands.BucketType.guild)
@@ -690,7 +723,7 @@ class Owner(commands.Cog):
                    alt_name="Xuất mã nguồn/nguồn.")
     async def exportsource(self, ctx:Union[CustomContext, disnake.MessageInteraction], *, flags: str = ""):
 
-        if not os.path.isdir(os.environ['GIT_DIR']):
+        if not os.path.isdir("./.git"):
             await self.cleanup_git(force=True)
 
         try:
@@ -967,6 +1000,7 @@ class Owner(commands.Cog):
                 ini_file = await r.read()
                 with open("lavalink.ini", "wb") as f:
                     f.write(ini_file)
+
 
 def setup(bot: BotCore):
     bot.add_cog(Owner(bot))

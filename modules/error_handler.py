@@ -47,25 +47,6 @@ class ErrorHandler(commands.Cog):
 
         await self.process_interaction_error(inter=inter, error=error)
 
-    """@commands.Cog.listener('on_user_command_completion')
-    @commands.Cog.listener('on_message_command_completion')
-    @commands.Cog.listener('on_slash_command_completion')
-    async def interaction_command_completion(self, inter: disnake.AppCmdInter):
-
-        try:
-            await inter.application_command._max_concurrency.release(inter)
-        except:
-            pass
-
-
-    @commands.Cog.listener("on_command_completion")
-    async def legacy_command_completion(self, ctx: CustomContext):
-
-        try:
-            await ctx.command._max_concurrency.release(ctx.message)
-        except:
-            pass"""
-
     @commands.Cog.listener('on_user_command_error')
     @commands.Cog.listener('on_message_command_error')
     @commands.Cog.listener('on_slash_command_error')
@@ -74,12 +55,6 @@ class ErrorHandler(commands.Cog):
         await self.process_interaction_error(inter=inter, error=error)
 
     async def process_interaction_error(self, inter: disnake.AppCmdInter, error: Exception):
-
-        """if not isinstance(error, commands.MaxConcurrencyReached):
-            try:
-                await inter.application_command._max_concurrency.release(inter)
-            except:
-                pass"""
 
         if isinstance(error, PoolException):
             return
@@ -115,10 +90,10 @@ class ErrorHandler(commands.Cog):
 
         else:
 
-            kwargs["embeds"] = []
+            kwargs["embed"] = []
 
             for p in paginator(error_msg):
-                kwargs["embeds"].append(disnake.Embed(color=color, description=p))
+                kwargs["embed"].append(disnake.Embed(color=color, description=p))
 
         try:
             await send_message(inter, components=components, **kwargs)
@@ -148,44 +123,10 @@ class ErrorHandler(commands.Cog):
         except:
             traceback.print_exc()
 
-    async def do_playcmd(self, ctx: CustomContext):
-        query = str(ctx.message.content)
-
-        for m in ctx.message.mentions:
-            query = query.replace(m.mention, "", 1)
-
-        query = query.strip()
-
-        if query:
-
-            play_cmd = self.bot.get_slash_command("play")
-
-            try:
-                await play_cmd.callback(
-                    inter=ctx, query=query,
-                    self=play_cmd.cog, position=0, options=False, force_play="no",
-                    manual_selection=False, repeat_amount=0, server=None
-                )
-            except commands.CommandNotFound:
-                return
-            except Exception as e:
-                await self.on_legacy_command_error(ctx, e)
-
     @commands.Cog.listener("on_command_error")
     async def on_legacy_command_error(self, ctx: CustomContext, error: Exception):
 
-        """if not isinstance(error, commands.MaxConcurrencyReached):
-            try:
-                await ctx.command._max_concurrency.release(ctx.message)
-            except:
-                pass"""
-
-        if isinstance(error, PoolException):
-            return
-
-        if isinstance(error, commands.CommandNotFound):
-            if ctx.prefix.startswith(self.bot.user.mention):
-                await self.do_playcmd(ctx)
+        if isinstance(error, (commands.CommandNotFound, PoolException)):
             return
 
         if isinstance(error, commands.NotOwner):
@@ -197,21 +138,6 @@ class ErrorHandler(commands.Cog):
                 await ctx.reinvoke()
             except Exception as e:
                 await self.on_legacy_command_error(ctx, e)
-            return
-
-        if isinstance(error, commands.TooManyArguments):
-            if ctx.prefix.startswith(self.bot.user.mention):
-                await self.do_playcmd(ctx)
-            else:
-                if ctx.cog:
-                    try:
-                        ctx.args.remove(ctx.cog)
-                    except:
-                        pass
-                try:
-                    await ctx.command(*ctx.args, **ctx.kwargs)
-                except Exception as e:
-                    await self.on_legacy_command_error(ctx, e)
             return
 
         error_msg, full_error_msg, kill_process, components, mention_author = parse_error(ctx, error)
@@ -262,7 +188,7 @@ class ErrorHandler(commands.Cog):
                 func = ctx.inter.edit_original_message
             else:
                 func = ctx.inter.response.edit_message
-            kwargs.pop("delete_after", None)
+                kwargs.pop("delete_after", None)
         else:
             try:
                 func = ctx.store_message.edit
@@ -403,22 +329,6 @@ class ErrorHandler(commands.Cog):
                 value=f"```\n{disnake.utils.escape_markdown(ctx.channel.name)}\nID: {ctx.channel.id}```"
             )
 
-            if vc := ctx.author.voice:
-                embed.add_field(
-                    name="Kênh thoại:", inline=False,
-                    value=f"```\n{disnake.utils.escape_markdown(vc.channel.name)}" +
-                          (f" ({len(vc.channel.voice_states)}/{vc.channel.user_limit})"
-                           if vc.channel.user_limit else "") + f"\nID: {vc.channel.id}```"
-                )
-
-            if vcbot := ctx.guild.me.voice:
-                if vc and vcbot.channel != vc.channel:
-                    embed.add_field(
-                        name="Kênh thoại (bot):", inline=False,
-                        value=f"{vc.channel.name}" +
-                              (f" ({len(vc.channel.voice_states)}/{vc.channel.user_limit})"
-                               if vc.channel.user_limit else "") + f"\nID: {vc.channel.id}```"
-                    )
             if ctx.guild.icon:
                 embed.set_thumbnail(url=ctx.guild.icon.with_static_format("png").url)
 

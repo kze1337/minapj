@@ -54,7 +54,9 @@ class YTDLTools:
     ]
 
     def extract_info(self, url: str):
-        return yt_dlp.YoutubeDL(YTDL_OPTS).extract_info(url=url, download=False)
+
+        with yt_dlp.YoutubeDL(YTDL_OPTS) as ytdl:
+            return ytdl.extract_info(url=url, download=False)
 
     async def get_track_info(self, url: str, user: disnake.Member = None, loop = None):
 
