@@ -392,11 +392,10 @@ class Users(commands.Cog):
 
 #################################################################
 
-    @commands.Cog.listener()
-    async def on_button_click(self, inter: disnake.MessageInteraction):
+    @commands.Cog.listener("on_button_click")
+    async def buy_premium_btn(self, inter: disnake.MessageInteraction):
         if inter.author.bot:
             pass
-        await inter.response.defer(ephemeral=True)
 
         uid = inter.author.id
         userinfo = await self.bot.db_handler.get_userinfo(uid)
