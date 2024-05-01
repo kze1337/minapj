@@ -87,7 +87,7 @@ class ChatGPT(commands.Cog):
                 try: 
                     premium = userinfo["premium"]
                     embed = disnake.Embed(
-                        title="<a:loading:1119655713606729838> Vui lòng chờ. Tùy vào nội dung, quá trình xử lý có thể kéo dài đến 1-2 phút...",
+                        title="<a:aloading:1229108110577107077> Vui lòng chờ.\n Tùy vào nội dung, quá trình xử lý có thể kéo dài đến 1-2 phút...",
                         color=disnake.Color.yellow()
                     )
                     await ctx.edit_original_response(embed=embed)
