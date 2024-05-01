@@ -11,7 +11,7 @@ from utils.client import BotCore
 from utils.GenEMBED import Embed
 from utils.music.checks import can_send_message_check, can_send_message
 from utils.ai.chatgpt import chatgpt, create_thread
-from utils.ai.rsnApi import bard, gemini, claude
+from utils.ai.rsnApi import gemini, claude
 import datetime
 
 import os
@@ -26,7 +26,6 @@ desc_prefix = "⚡[AI]⚡"
 model_info = {
     "gpt-3.5-turbo": {"name": "OpenAI GPT-3.5", "icon": "https://cdn.discordapp.com/attachments/1117362735911538768/1131924844603265054/img-1190-removebg-preview.png"},
     "gemini": {"name": "Gemini Ai", "icon": "https://www.gstatic.com/lamda/images/sparkle_resting_v2_darkmode_2bdb7df2724e450073ede.gif"},
-    "bard": {"name": "Bard Ai", "icon": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Google_Bard_logo.svg/1024px-Google_Bard_logo.svg.png"},
     "claude": {"name": "Claude Ai", "icon": "https://i.ibb.co/wKNmJ8h/claude-ai-icon.png"}
 }
 
@@ -67,7 +66,6 @@ class ChatGPT(commands.Cog):
             disnake.Option(name="model", description="Model chatbot", type=OptionType.string, required=True, choices=[
                 OptionChoice(name="GPT-3.5", value="gpt-3.5-turbo"),
                 OptionChoice(name="Gemini", value="gemini"),
-                OptionChoice(name="Bard", value="bard"),
                 OptionChoice(name="Claude", value="claude")
             ]),
             disnake.Option(name="private", description="Chế độ riêng tư (Yêu cầu bạn phải bật nếu bạn ở trên kênh chat chính)", type=OptionType.boolean, required=False, choices=[
@@ -97,8 +95,6 @@ class ChatGPT(commands.Cog):
                         response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
                     if model == "gemini": # GEMINI AI (NEW)
                         response = await gemini(content)
-                    if model == "bard": # BARD AI (OLD)
-                        response = await bard(content)
                     if model == "claude": # ClAUDE AI
                         response = await claude(content)
                     if response["status"] == "error":

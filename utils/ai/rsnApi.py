@@ -32,17 +32,5 @@ async def gemini(content: str) -> dict:
 
     }
 
-
-async def bard(content: str) -> dict:
-    
-    resp = rsnchat.bard(content)
-
-    output = resp.get('message', '')
-
-
-    return {
-        "status": "success", "message": output
-
-    }
-
-#! IF IT WORK, DONT TOUCH
+#! DISCLAIMER: IF IT WORKS, DON'T TOUCH IT
+#! 免責事項: 動作する場合は、触れないでください。
