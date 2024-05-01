@@ -492,8 +492,11 @@ class PlayerSession(commands.Cog):
             if player.nightcore:
                 await player.set_timescale(pitch=1.2, speed=1.1)
 
-            if player.nightcore:
-                await player.set_timescale(pitch=1.2, speed=1.1)
+            if player.filter3d:
+                await player.set_rotation(sample_rate=0.2)
+                
+            if player.slowmo:
+                await player.set_timescale(speed=0.5, pitch=1.0, rate=0.8)
 
             await player.connect(voice_channel.id)
 
@@ -591,7 +594,7 @@ class PlayerSession(commands.Cog):
 
             player.members_timeout_task = self.bot.loop.create_task(player.members_timeout(check=check, idle_timeout=10))
 
-            print(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}]")
+            print(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}] - Server: [{player.node.identifier}]")
 
         except Exception:
             print(f"{self.bot.user} - Critical failure when resuming players:\n{traceback.format_exc()}")
