@@ -186,106 +186,106 @@ class DefaultProgressbarSkin:
         data["embeds"] = [embed_queue, embed] if embed_queue else [embed]
 
         data["components"] = [
-            # disnake.ui.Button(emoji="<:ayaka_tea:1122325362702037022> ", custom_id=PlayerControls.stop, style=disnake.ButtonStyle.red),
-            # disnake.ui.Button(emoji="⏮️", custom_id=PlayerControls.back, style=disnake.ButtonStyle.green),
-            # disnake.ui.Button(emoji="⏯️", custom_id=PlayerControls.pause_resume, style=get_button_style(player.paused)),
-            # disnake.ui.Button(emoji="⏭️", custom_id=PlayerControls.skip, style=disnake.ButtonStyle.green),
-            # disnake.ui.Button(emoji="<:pnv_cong1:1167732512336920606>", custom_id=PlayerControls.add_song, style=disnake.ButtonStyle.green, label="Thêm nhạc", disabled= True if player.paused else False),
-            # disnake.ui.Select(
-            #     placeholder="Lựa chọn khác:",
-            #     custom_id="musicplayer_dropdown_inter",
-            #     min_values=0, max_values=1,
-            #     options=[
-            #         disnake.SelectOption(
-            #             label="Thêm bài hát", emoji="<:add_music:588172015760965654>",
-            #             value=PlayerControls.add_song,
-            #             description="Thêm một bài hát/danh sách phát vào trong hàng đợi."
-            #         ),
-            #         disnake.SelectOption(
-            #             label="Thêm vào mục yêu thích của bạn", emoji="💗",
-            #             value=PlayerControls.add_favorite,
-            #             description="Thêm bài hát hiện tại vào mục yêu thích của bạn."
-            #         ),
-            #         disnake.SelectOption(
-            #             label="Tua về đầu bài", emoji="⏪",
-            #             value=PlayerControls.seek_to_start,
-            #             description="Tua thời gian bài nhạc hiện tại về 00:00."
-            #         ),
-            #         disnake.SelectOption(
-            #             label=f"Âm lượng: {player.volume}", emoji="🔊",
-            #             value=PlayerControls.volume,
-            #             description="Điều chỉnh âm lượng"
-            #         ),
-            #         disnake.SelectOption(
-            #             label="Trộn các bài hát trong hàng", emoji="🔀",
-            #             value=PlayerControls.shuffle,
-            #             description="Trộn nhạc trong hàng đợi."
-            #         ),
-            #         disnake.SelectOption(
-            #             label="Chơi lại tất cả các bài hát đã phát", emoji="🎶",
-            #             value=PlayerControls.readd,
-            #             description="Đưa các bài hát đã chơi trở lại hàng chờ."
-            #         ),
-            #         disnake.SelectOption(
-            #             label="Chế độ lặp lại", emoji="🔁",
-            #             value=PlayerControls.loop_mode,
-            #             description="Kích hoạt/Vô hiệu hóa lặp lại."
-            #         ),
-            #         disnake.SelectOption(
-            #             label=("Vô hiệu hóa" if player.autoplay else "Kích hoạt") + " chế độ tự thêm nhạc", emoji="🔄",
-            #             value=PlayerControls.autoplay,
-            #             description="Hệ thống bổ sung âm nhạc tự động khi dòng trống."
-            #         ),
-            #         disnake.SelectOption(
-            #             label=("Vô hiệu hóa" if player.nightcore else "Kích hoạt") + " hiệu ứng nightcore", emoji="<:nightcore:1140227024108130314>",
-            #             value=PlayerControls.nightcore,
-            #             description="Hiệu ứng Nightcore."
-            #         ),
-            #         disnake.SelectOption(
-            #             label=("Vô hiệu hóa" if player.restrict_mode else "Kích hoạt") + " chế độ hạn chế", emoji="🔐",
-            #             value=PlayerControls.restrict_mode,
-            #             description="Chỉ DJ/Staff mới có thể sử dụng các lệnh bị hạn chế."
-            #         ),
-            #         disnake.SelectOption(
-            #             label="Danh sách bài hát", emoji="<:music_queue:703761160679194734>",
-            #             value=PlayerControls.queue,
-            #             description="Hiển thị cho bạn 1 danh sách mà chỉ có bạn mới nhìn thấy"
-            #         ),
-            #         disnake.SelectOption(
-            #             label=("Bật" if not player.keep_connected else "Tắt") + " chế độ 247", emoji="<:247:1140230869643169863>",
-            #             value=PlayerControls.keep_connected,
-            #             description="Chế độ chạy không dừng 24/7."
-            #         ),
-            #     ]
-            # ),
+            disnake.ui.Button(emoji="<:ayaka_tea:1122325362702037022> ", custom_id=PlayerControls.stop, style=disnake.ButtonStyle.red),
+            disnake.ui.Button(emoji="⏮️", custom_id=PlayerControls.back, style=disnake.ButtonStyle.green),
+            disnake.ui.Button(emoji="⏯️", custom_id=PlayerControls.pause_resume, style=get_button_style(player.paused)),
+            disnake.ui.Button(emoji="⏭️", custom_id=PlayerControls.skip, style=disnake.ButtonStyle.green),
+            disnake.ui.Button(emoji="<:pnv_cong1:1167732512336920606>", custom_id=PlayerControls.add_song, style=disnake.ButtonStyle.green, label="Thêm nhạc", disabled= True if player.paused else False),
+            disnake.ui.Select(
+                placeholder="Lựa chọn khác:",
+                custom_id="musicplayer_dropdown_inter",
+                min_values=0, max_values=1,
+                options=[
+                    disnake.SelectOption(
+                        label="Thêm bài hát", emoji="<:add_music:588172015760965654>",
+                        value=PlayerControls.add_song,
+                        description="Thêm một bài hát/danh sách phát vào trong hàng đợi."
+                    ),
+                    disnake.SelectOption(
+                        label="Thêm vào mục yêu thích của bạn", emoji="💗",
+                        value=PlayerControls.add_favorite,
+                        description="Thêm bài hát hiện tại vào mục yêu thích của bạn."
+                    ),
+                    disnake.SelectOption(
+                        label="Tua về đầu bài", emoji="⏪",
+                        value=PlayerControls.seek_to_start,
+                        description="Tua thời gian bài nhạc hiện tại về 00:00."
+                    ),
+                    disnake.SelectOption(
+                        label=f"Âm lượng: {player.volume}", emoji="🔊",
+                        value=PlayerControls.volume,
+                        description="Điều chỉnh âm lượng"
+                    ),
+                    disnake.SelectOption(
+                        label="Trộn các bài hát trong hàng", emoji="🔀",
+                        value=PlayerControls.shuffle,
+                        description="Trộn nhạc trong hàng đợi."
+                    ),
+                    disnake.SelectOption(
+                        label="Chơi lại tất cả các bài hát đã phát", emoji="🎶",
+                        value=PlayerControls.readd,
+                        description="Đưa các bài hát đã chơi trở lại hàng chờ."
+                    ),
+                    disnake.SelectOption(
+                        label="Chế độ lặp lại", emoji="🔁",
+                        value=PlayerControls.loop_mode,
+                        description="Kích hoạt/Vô hiệu hóa lặp lại."
+                    ),
+                    disnake.SelectOption(
+                        label=("Vô hiệu hóa" if player.autoplay else "Kích hoạt") + " chế độ tự thêm nhạc", emoji="🔄",
+                        value=PlayerControls.autoplay,
+                        description="Hệ thống bổ sung âm nhạc tự động khi dòng trống."
+                    ),
+                    disnake.SelectOption(
+                        label=("Vô hiệu hóa" if player.nightcore else "Kích hoạt") + " hiệu ứng nightcore", emoji="<:nightcore:1140227024108130314>",
+                        value=PlayerControls.nightcore,
+                        description="Hiệu ứng Nightcore."
+                    ),
+                    disnake.SelectOption(
+                        label=("Vô hiệu hóa" if player.restrict_mode else "Kích hoạt") + " chế độ hạn chế", emoji="🔐",
+                        value=PlayerControls.restrict_mode,
+                        description="Chỉ DJ/Staff mới có thể sử dụng các lệnh bị hạn chế."
+                    ),
+                    disnake.SelectOption(
+                        label="Danh sách bài hát", emoji="<:music_queue:703761160679194734>",
+                        value=PlayerControls.queue,
+                        description="Hiển thị cho bạn 1 danh sách mà chỉ có bạn mới nhìn thấy"
+                    ),
+                    disnake.SelectOption(
+                        label=("Bật" if not player.keep_connected else "Tắt") + " chế độ 247", emoji="<:247:1140230869643169863>",
+                        value=PlayerControls.keep_connected,
+                        description="Chế độ chạy không dừng 24/7."
+                    ),
+                ]
+            ),
         ]
 
-        # if player.current.ytid and player.node.lyric_support:
-        #             data["components"][5].options.append(
-        #                 disnake.SelectOption(
-        #                     label="Xem lời bài hát", emoji="📃",
-        #                     value=PlayerControls.lyrics,
-        #                     description="Nhận lời bài hát của bài hát hiện tại."
-        #                 )
-        #             )
+        if player.current.ytid and player.node.lyric_support:
+                    data["components"][5].options.append(
+                        disnake.SelectOption(
+                            label="Xem lời bài hát", emoji="📃",
+                            value=PlayerControls.lyrics,
+                            description="Nhận lời bài hát của bài hát hiện tại."
+                        )
+                    )
 
-        # if player.mini_queue_feature:
-        #     data["components"][5].options.append(
-        #         disnake.SelectOption(
-        #             label="Danh sách phát mini", emoji="<:music_queue:703761160679194734>",
-        #             value=PlayerControls.miniqueue,
-        #             description="Kích hoạt/vô hiệu hóa danh sách phát mini của người chơi."
-        #         )
-        #     )
+        if player.mini_queue_feature:
+            data["components"][5].options.append(
+                disnake.SelectOption(
+                    label="Danh sách phát mini", emoji="<:music_queue:703761160679194734>",
+                    value=PlayerControls.miniqueue,
+                    description="Kích hoạt/vô hiệu hóa danh sách phát mini của người chơi."
+                )
+            )
 
-        # if not player.static and not player.has_thread:
-        #     data["components"][5].options.append(
-        #         disnake.SelectOption(
-        #             label="Chủ đề yêu cầu bài hát", emoji="💬",
-        #             value=PlayerControls.song_request_thread,
-        #             description="Tạo một cuộc trò chuyện chủ đề/tạm thời để thêm nhạc chỉ bằng cách chỉ bằng tên/liên kết."
-        #         )
-        #     )
+        if not player.static and not player.has_thread:
+            data["components"][5].options.append(
+                disnake.SelectOption(
+                    label="Chủ đề yêu cầu bài hát", emoji="💬",
+                    value=PlayerControls.song_request_thread,
+                    description="Tạo một cuộc trò chuyện chủ đề/tạm thời để thêm nhạc chỉ bằng cách chỉ bằng tên/liên kết."
+                )
+            )
 
         return data
 
