@@ -418,6 +418,8 @@ class LavalinkPlayer(wavelink.Player):
         self.failed_tracks: deque = deque(maxlen=30)
         self.autoplay: bool = kwargs.pop("autoplay", False)
         self.nightcore: bool = False
+        self.slowmo: bool = False
+        self.filter3d: bool = False
         self.loop = False
         self.last_track: Optional[LavalinkTrack] = None
         self.locked: bool = False
@@ -1244,7 +1246,7 @@ class LavalinkPlayer(wavelink.Player):
                 except:
                     pass
 
-            await self.destroy()
+            await self.playerdestroy()
 
     async def get_autoqueue_tracks(self):
 
@@ -1867,7 +1869,7 @@ class LavalinkPlayer(wavelink.Player):
         except:
             traceback.print_exc()
 
-        await self.destroy()
+        await self.playerdestroy()
 
     def set_command_log(self, text="", emoji=""):
         self.command_log = text
@@ -2900,7 +2902,7 @@ class LavalinkPlayer(wavelink.Player):
 
         self.locked = False
 
-    async def destroy(self, *, force: bool = False, inter: disnake.MessageInteraction = None):
+    async def playerdestroy(self, *, force: bool = False, inter: disnake.MessageInteraction = None):
         self.bot.loop.create_task(self.process_destroy(force=force, inter=inter))
 
     async def process_destroy(self, force: bool = False, inter: disnake.MessageInteraction = None):
@@ -3058,6 +3060,13 @@ class LavalinkPlayer(wavelink.Player):
         await self.update_filters()
 
         return filter_type
+    
+    async def turnallfilteroff(self):
+        
+        await self.set_rotation(enabled=False)
+        await self.set_timescale(enabled=False)
+        
+        await self.update_filters()
 
 
 def music_mode(bot: BotCore):

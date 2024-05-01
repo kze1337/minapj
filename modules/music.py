@@ -2636,13 +2636,13 @@ class Music(commands.Cog):
 
         await self.interaction_message(inter, txt, emoji="💬", defered=True, force=True)
 
-    nightcore_cd = commands.CooldownMapping.from_cooldown(1, 7, commands.BucketType.guild)
-    nightcore_mc = commands.MaxConcurrency(1, per=commands.BucketType.guild, wait=False)
+    filtercd = commands.CooldownMapping.from_cooldown(1, 7, commands.BucketType.guild)
+    filtermc = commands.MaxConcurrency(1, per=commands.BucketType.guild, wait=False)
 
     @is_dj()
     @has_source()
     @check_voice()
-    @pool_command(name="nightcore", aliases=["nc"], only_voiced=True, cooldown=nightcore_cd, max_concurrency=nightcore_mc,
+    @pool_command(name="nightcore", aliases=["nc"], only_voiced=True, cooldown=filtercd, max_concurrency=filtermc,
                   description="Kích hoạt/Vô hiệu hóa hiệu ứng Nightcore.")
     async def nightcore_legacy(self, ctx: CustomContext):
 
@@ -2653,7 +2653,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Kích hoạt/Vô hiệu hóa hiệu ứng Nightcore.",
-        extras={"only_voiced": True}, cooldown=nightcore_cd, max_concurrency=nightcore_mc, dm_permission=False,
+        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc, dm_permission=False,
     )
     async def nightcore(self, inter: disnake.AppCmdInter):
 
@@ -2667,6 +2667,8 @@ class Music(commands.Cog):
         player.nightcore = not player.nightcore
 
         if player.nightcore:
+            await player.turnallfilteroff()
+            await asyncio.sleep(2)
             await player.set_timescale(pitch=1.2, speed=1.1)
             txt = "kích hoạt"
         else:
@@ -2677,6 +2679,70 @@ class Music(commands.Cog):
         txt = [f"{txt} Hiệu ứng Nightcore.", f"🇳 **⠂{inter.author.mention} {txt} Hiệu ứng Nightcore.**"]
 
         await self.interaction_message(inter, txt, emoji="🇳")
+        
+    @is_dj()
+    @has_source()
+    @check_voice()
+    @commands.slash_command(
+        description=f"{desc_prefix}Kích hoạt/Vô hiệu hóa hiệu ứng 3D.",
+        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc, dm_permission=False,
+    )
+    async def filter3d(self, inter: disnake.AppCmdInter):
+
+        try:
+            bot = inter.music_bot
+        except AttributeError:
+            bot = inter.bot
+
+        player: LavalinkPlayer = bot.music.players[inter.guild_id]
+
+        player.filter3d = not player.filter3d
+
+        if player.filter3d:
+            await player.turnallfilteroff()
+            await asyncio.sleep(2)
+            await player.set_rotation(sample_rate=0.3)
+            txt = "kích hoạt"
+        else:
+            await player.set_rotation(enabled=False)
+            await player.update_filters()
+            txt = "Vô hiệu hóa"
+
+        txt = [f"{txt} Hiệu ứng 3D.", f"🔊 **⠂{inter.author.mention} {txt} Hiệu ứng 3D.**"]
+
+        await self.interaction_message(inter, txt, emoji="🔊")  
+        
+    @is_dj()
+    @has_source()
+    @check_voice()
+    @commands.slash_command(
+        description=f"{desc_prefix}Kích hoạt/Vô hiệu hóa hiệu ứng slowmo.",
+        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc, dm_permission=False,
+    )
+    async def filter_slowmo(self, inter: disnake.AppCmdInter):
+
+        try:
+            bot = inter.music_bot
+        except AttributeError:
+            bot = inter.bot
+
+        player: LavalinkPlayer = bot.music.players[inter.guild_id]
+
+        player.slowmo = not player.slowmo
+
+        if player.slowmo:
+            await player.turnallfilteroff()
+            await asyncio.sleep(2)
+            await player.set_timescale(speed=0.5, pitch=1.0, rate=0.8)
+            txt = "kích hoạt"
+        else:
+            await player.set_timescale(enabled=False)
+            await player.update_filters()
+            txt = "Vô hiệu hóa"
+
+        txt = [f"{txt} Hiệu ứng Slowmo.", f"🔊 **⠂{inter.author.mention} {txt} Hiệu ứng Slowmo.**"]
+
+        await self.interaction_message(inter, txt, emoji="🔊")  
 
     controller_cd = commands.CooldownMapping.from_cooldown(1, 10, commands.BucketType.member)
     controller_mc = commands.MaxConcurrency(1, per=commands.BucketType.member, wait=False)
@@ -2899,7 +2965,7 @@ class Music(commands.Cog):
         player.command_log = f"{inter.author.mention} **đã dừng người chơi!**"
 
         if isinstance(inter, disnake.MessageInteraction):
-            await player.destroy(inter=inter_destroy)
+            await player.playerdestroy(inter=inter_destroy)
         else:
 
             embed = disnake.Embed(
@@ -2917,7 +2983,7 @@ class Music(commands.Cog):
                 embed=embed,
                 ephemeral=player.static and player.text_channel.id == inter.channel_id
             )
-            await player.destroy()
+            await player.playerdestroy()
 
     @check_queue_loading()
     @has_player()
@@ -4352,7 +4418,7 @@ class Music(commands.Cog):
                     print(
                         f"{self.bot.user} - {player.guild.name} [{guild_id}] - Trình phát không thể kết nối lại với kênh thoại.")
                     try:
-                        await player.destroy()
+                        await player.playerdestroy()
                     except:
                         traceback.print_exc()
                     continue
@@ -4723,8 +4789,6 @@ class Music(commands.Cog):
 
                 can_connect(channel=author.voice.channel, guild=channel.guild)
 
-                await interaction.response.defer()
-
                 if control == PlayerControls.embed_enqueue_playlist:
 
                     if (retry_after := self.bot.pool.enqueue_playlist_embed_cooldown.get_bucket(interaction).update_rate_limit()):
@@ -5007,7 +5071,7 @@ class Music(commands.Cog):
                 try:
                     vc = player.guild.me.voice.channel
                 except AttributeError:
-                    await player.destroy(force=True)
+                    await player.playerdestroy(force=True)
                     return
 
                 if control == PlayerControls.help_button:
@@ -6419,7 +6483,7 @@ class Music(commands.Cog):
 
             localnode = {
                 'host': '127.0.0.1',
-                'port': os.environ.get("SERVER_PORT") or 8090,
+                'port':  8090,
                 'password': 'youshallnotpass',
                 'identifier': 'LOCAL',
                 'region': 'us_central',
@@ -6504,7 +6568,7 @@ class Music(commands.Cog):
 
                     if player.static:
                         player.set_command_log(msg)
-                        await player.destroy()
+                        await player.playerdestroy()
 
                     else:
                         embed = disnake.Embed(
@@ -6514,7 +6578,7 @@ class Music(commands.Cog):
                             self.bot.loop.create_task(player.text_channel.send(embed=embed, delete_after=7))
                         except:
                             traceback.print_exc()
-                        await player.destroy()
+                        await player.playerdestroy()
 
                 else:
                     while True:
@@ -6543,7 +6607,7 @@ class Music(commands.Cog):
                                 can_connect(before.channel, player.guild, bot=player.bot)
                             except Exception as e:
                                 player.set_command_log(f"Trình phát đã bị tắt vì đã xảy ra lỗi: {e}")
-                                await player.destroy()
+                                await player.playerdestroy()
                                 return
 
                             try:
@@ -6601,7 +6665,7 @@ class Music(commands.Cog):
                                                      f"{after.channel.mention} trong đó bot {b.user.mention} "
                                                      "nó cũng được kết nối tạo ra sự không tương thích với "
                                                      "hệ thống đa giọng nói của tôi.", emoji="⚠️")
-                        await player.destroy()
+                        await player.playerdestroy()
                     return
                 except AttributeError:
                     pass
@@ -6658,7 +6722,7 @@ class Music(commands.Cog):
             await asyncio.sleep(1)
             if not player.is_closing and not player._new_node_task:
                 try:
-                    await player.destroy(force=True)
+                    await player.playerdestroy(force=True)
                 except Exception:
                     traceback.print_exc()
 
