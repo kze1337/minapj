@@ -2456,17 +2456,19 @@ class LavalinkPlayer(wavelink.Player):
                                     f"Thất bại khi lưu trữ luồng máy chủ: {self.guild.name}\n{traceback.format_exc()}")
 
                     elif inter:
+                        try:
 
-                        await inter.response.edit_message(
-                            content=None,
-                            embed=disnake.Embed(
-                                description=f"🛑 ⠂{self.command_log}",
-                                color=self.bot.get_color(self.guild.me)),
-                            components=song_request_buttons
-                        )
+                            await inter.response.edit_message(
+                                content=None,
+                                embed=disnake.Embed(
+                                    description=f"🛑 ⠂{self.command_log}",
+                                    color=self.bot.get_color(self.guild.me)),
+                                components=song_request_buttons
+                            )
+                        except Exception:
+                            await self.destroy_message()
 
                     else:
-
                         await self.destroy_message()
                 except Exception:
                     traceback.print_exc()
