@@ -7,19 +7,6 @@ apiKey = os.environ.get("RSNCHATAPIKEY")
 
 rsnchat = RsnChat(apiKey)
 
-
-
-
-async def claude(content: str) -> dict:
-    resp = rsnchat.claude(content)
-
-    output = resp.get('message', '')
-
-    return  {
-        "status": "success", "message": output
-    }
-
-
 async def gemini(content: str) -> dict:
     
     resp = rsnchat.gemini(content)

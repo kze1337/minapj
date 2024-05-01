@@ -65,8 +65,7 @@ class ChatGPT(commands.Cog):
             disnake.Option(name="content", description="Nội dung chat", type=OptionType.string, required=True),
             disnake.Option(name="model", description="Model chatbot", type=OptionType.string, required=True, choices=[
                 OptionChoice(name="GPT-3.5", value="gpt-3.5-turbo"),
-                OptionChoice(name="Gemini", value="gemini"),
-                OptionChoice(name="Claude", value="claude")
+                OptionChoice(name="Gemini", value="gemini")
             ]),
             disnake.Option(name="private", description="Chế độ riêng tư (Yêu cầu bạn phải bật nếu bạn ở trên kênh chat chính)", type=OptionType.boolean, required=False, choices=[
                 OptionChoice(name="Bật", value=True),
@@ -95,8 +94,6 @@ class ChatGPT(commands.Cog):
                         response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
                     if model == "gemini": # GEMINI AI (NEW)
                         response = await gemini(content)
-                    if model == "claude": # ClAUDE AI
-                        response = await claude(content)
                     if response["status"] == "error":
                         await ctx.edit_original_response(embed=Embed.gen_error_embed(response["message"]))
                         return
