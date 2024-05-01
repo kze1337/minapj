@@ -11,7 +11,7 @@ from utils.client import BotCore
 from utils.GenEMBED import Embed
 from utils.music.checks import can_send_message_check, can_send_message
 from utils.ai.chatgpt import chatgpt, create_thread
-from utils.ai.rsnApi import gemini, claude
+from utils.ai.rsnApi import gemini
 import datetime
 
 import os
