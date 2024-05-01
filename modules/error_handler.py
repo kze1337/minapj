@@ -78,7 +78,7 @@ class ErrorHandler(commands.Cog):
 
             components = self.components
 
-            kwargs["embed"] = disnake.Embed(
+            kwargs["embeds"] = disnake.Embed(
                 color=color,
                 title = "Đã có một sự cố xảy ra, nhưng đó không phải lỗi của bạn:",
                 description=f"```py\n{repr(error)[:2030].replace(self.bot.http.token, 'mytoken')}```"
@@ -86,14 +86,14 @@ class ErrorHandler(commands.Cog):
 
             if self.bot.config["AUTO_ERROR_REPORT_WEBHOOK"]:
                 send_webhook = True
-                kwargs["embed"].description += " `Nhà phát triển của tôi sẽ nhận được thông báo về vấn đề.`"
+                kwargs["embeds"].description += " `Nhà phát triển của tôi sẽ nhận được thông báo về vấn đề.`"
 
         else:
 
-            kwargs["embed"] = []
+            kwargs["embeds"] = []
 
             for p in paginator(error_msg):
-                kwargs["embed"].append(disnake.Embed(color=color, description=p))
+                kwargs["embeds"].append(disnake.Embed(color=color, description=p))
 
         try:
             await send_message(inter, components=components, **kwargs)
@@ -152,14 +152,14 @@ class ErrorHandler(commands.Cog):
             components = self.components
 
             if ctx.channel.permissions_for(ctx.guild.me).embed_links:
-                kwargs["embed"] = disnake.Embed(
+                kwargs["embeds"] = disnake.Embed(
                     color=disnake.Colour.red(),
                     title="Đã có một sự cố đã xảy ra:",
                     description=f"```py\n{repr(error)[:2030].replace(self.bot.http.token, 'mytoken')}```"
                 ).set_thumbnail(url="https://cdn.discordapp.com/attachments/1172052818501308427/1176426375704498257/1049220311318540338.png?ex=656ed370&is=655c5e70&hm=11d80b14a3ca28d04f7ac48d3a39b0c6d5947d20c9ae78cee9a4e511ce65f301&")
                 if self.bot.config["AUTO_ERROR_REPORT_WEBHOOK"]:
                     send_webhook = True
-                    kwargs["embed"].description += " `Nhà phát triển của tôi sẽ được thông báo về vấn đề này.`"
+                    kwargs["embeds"].description += " `Nhà phát triển của tôi sẽ được thông báo về vấn đề này.`"
 
             else:
                 kwargs["content"] += "\n**Đã có một sự cố đã xảy ra:**\n" \
@@ -168,7 +168,7 @@ class ErrorHandler(commands.Cog):
         else:
 
             if ctx.channel.permissions_for(ctx.guild.me).embed_links:
-                kwargs["embed"] = disnake.Embed(color=disnake.Colour.red(), description=error_msg)
+                kwargs["embeds"] = disnake.Embed(color=disnake.Colour.red(), description=error_msg)
             else:
                 kwargs["content"] += f"\n{error_msg}"
 
