@@ -2983,7 +2983,7 @@ class Music(commands.Cog):
                 embed=embed,
                 ephemeral=player.static and player.text_channel.id == inter.channel_id
             )
-            await player.playerdestroy()
+            await player.playerdestroy(inter=inter)
 
     @check_queue_loading()
     @has_player()
