@@ -4820,6 +4820,7 @@ class Music(commands.Cog):
                             await self.check_stage_title(inter=interaction, bot=bot, player=player)
                             await player.seek(0)
                             player.set_command_log("quay lại phần đầu của bài hát.", emoji="⏪")
+                            await interaction.send("Lệnh đã được thực hiện thành công", ephemeral=True)
                             await asyncio.sleep(3)
                             await player.update_stage_topic()
                             await asyncio.sleep(7)
@@ -6068,7 +6069,7 @@ class Music(commands.Cog):
                 components.extend(
                     [
                         disnake.ui.Button(emoji="💗", label="Yêu thích", custom_id=PlayerControls.embed_add_fav),
-                        disnake.ui.Button(emoji="<:play:914841137938829402>", label="Tocar", custom_id=PlayerControls.embed_forceplay),
+                        disnake.ui.Button(emoji="<:play:914841137938829402>", label="Phát Ngay", custom_id=PlayerControls.embed_forceplay),
                         disnake.ui.Button(emoji="<:add_music:588172015760965654>", label="Thêm vào hàng đợi",
                                           custom_id=PlayerControls.embed_enqueue_track)
                     ]
