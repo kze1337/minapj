@@ -120,7 +120,7 @@ class DefaultStaticSkin:
             pass
         
         if player.current.track_loops:
-            txt += f"\n> <:loop:1140220877401772092> **⠂Lặp lại còn lại:** `{player.current.track_loops}`\n " \
+            txt += f"\n> <:loop:1140220877401772092> **⠂Lặp lại còn lại:** `{player.current.track_loops}` " \
 
 
         if player.loop:

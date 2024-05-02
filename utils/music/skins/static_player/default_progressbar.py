@@ -81,7 +81,7 @@ class DefaultProgressbarStaticSkin:
             txt += f"> <a:loading:1204300257874288681> ╰[Độ trễ:{player.ping}ms\n" \
         
         if player.current.track_loops:
-            txt += f"\n> <:loop:1140220877401772092> **⠂Lặp lại còn lại:** `{player.current.track_loops}`\n " \
+            txt += f"\n> <:loop:1140220877401772092> **⠂Lặp lại còn lại:** `{player.current.track_loops}` " \
 
         if player.current.autoplay:
             txt += f"> <:music:1140220553135931392> **⠂Tự động thêm nhạc:** `Bật`"
