@@ -165,12 +165,12 @@ class emoji(commands.Cog):
         
         from utils.music.errors import GenericError
 
-        try:    
-            check_emoji = await check_duplicate_emoji(ctx, list_emoji[0]["name"])
-            if check_emoji["status"] == "error":
-                return
-        except IndexError:
-            raise GenericError("Đã xảy ra lỗi khi thêm emoji, vui lòng thử lại :E")
+       # try:    
+       #     check_emoji = await check_duplicate_emoji(ctx, list_emoji[0]["name"])
+       #     if check_emoji["status"] == "error":
+       #          return
+       # except IndexError:
+       #     raise GenericError("Đã xảy ra lỗi khi thêm emoji, vui lòng thử lại :E")
             
      
         
