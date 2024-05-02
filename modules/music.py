@@ -2383,8 +2383,8 @@ class Music(commands.Cog):
         player.current.info["extra"]["track_loops"] = value
 
         txt = [
-            f"xác định số lượng lặp lại của bài hát "
-            f"[`{(fix_characters(player.current.title, 25))}`]({player.current.uri or player.current.search_uri}) para **{value}**.",
+            f"cài đặt số lần lặp lại cho bài hát: "
+            f"[`{(fix_characters(player.current.title, 25))}`]({player.current.uri or player.current.search_uri}) là **{value}** lần.",
             f"🔄 **⠂{inter.author.mention} đã cho bài hát lặp lại [{value}] lần:**\n"
             f"╰[`{player.current.title}`]({player.current.uri or player.current.search_uri})"
         ]
