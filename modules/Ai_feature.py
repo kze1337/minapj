@@ -26,7 +26,6 @@ desc_prefix = "⚡[AI]⚡"
 model_info = {
     "gpt-3.5-turbo": {"name": "OpenAI GPT-3.5", "icon": "https://cdn.discordapp.com/attachments/1117362735911538768/1131924844603265054/img-1190-removebg-preview.png"},
     "gemini": {"name": "Gemini Ai", "icon": "https://www.gstatic.com/lamda/images/sparkle_resting_v2_darkmode_2bdb7df2724e450073ede.gif"},
-    "claude": {"name": "Claude Ai", "icon": "https://i.ibb.co/wKNmJ8h/claude-ai-icon.png"}
 }
 
 async def check_user(bot, ctx, uid, premium_check = False):
