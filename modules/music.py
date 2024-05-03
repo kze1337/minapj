@@ -4848,6 +4848,8 @@ class Music(commands.Cog):
                                             track = t
                                             player.failed_tracks.remove(t)
                                             break
+                                        
+                            await interaction.send("Lệnh đã được thực hiện thành công", ephemeral=True)
 
                     if not seek_status:
 
