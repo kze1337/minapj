@@ -29,3 +29,4 @@ pytz
 google-generativeai
 gTTS
 rsnchat
+nekos.py
