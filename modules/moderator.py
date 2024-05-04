@@ -178,6 +178,7 @@ class Moderator(commands.Cog):
 
     @commands.command(name="purge", description="Xóa tin nhắn trong kênh")
     @commands.has_permissions(manage_messages=True, read_message_history=True)
+    @commands.cooldown(1, 10, commands.BucketType.guild)
     @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
     async def purge_legacy(self, ctx: Union[CustomContext, disnake.AppCommandInteraction], amount: int = None):
         await ctx.message.delete()
@@ -191,6 +192,7 @@ class Moderator(commands.Cog):
                                                     )])
     @commands.has_permissions(manage_messages=True, read_message_history=True)
     @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
+    @commands.cooldown(1, 10, commands.BucketType.guild)
     async def purge(self, ctx: disnake.AppCommandInteraction, amount: int = None):
         if ctx.author.bot:
             return
@@ -211,7 +213,7 @@ class Moderator(commands.Cog):
             await ctx.send(embed=disnake.Embed(title=f"<:trash:1155781755601682433> Đã xóa {len(deleted)} tin nhắn", color=disnake.Color.green()), delete_after=5)
 
     @commands.command(name="nuke", description="Xóa toàn bộ tin nhắn trong kênh và tạo lại kênh")
-    @commands.has_permissions(manage_channels=True)
+    @commands.has_permissions(administrator=True)
     @commands.bot_has_permissions(manage_channels=True)
     @commands.cooldown(1, 86400, commands.BucketType.guild)
     async def nuke(self, ctx: CustomContext):
