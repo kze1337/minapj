@@ -496,7 +496,7 @@ class PlayerSession(commands.Cog):
                 await player.set_rotation(sample_rate=0.2)
                 
             if player.slowmo:
-                await player.set_timescale(speed=0.5, pitch=1.0, rate=0.8)
+                await player.set_timescale(speed=0.75, pitch=1.0, rate=0.8)
 
             await player.connect(voice_channel.id)
 

@@ -2732,7 +2732,7 @@ class Music(commands.Cog):
         if player.slowmo:
             await player.turnallfilteroff()
             await asyncio.sleep(2)
-            await player.set_timescale(speed=0.5, pitch=1.0, rate=0.8)
+            await player.set_timescale(speed=0.75, pitch=1.0, rate=0.8)
             txt = "kích hoạt"
         else:
             await player.set_timescale(enabled=False)
