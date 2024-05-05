@@ -97,6 +97,9 @@ def parse_error(
     elif isinstance(error, commands.MissingPermissions):
         error_txt = "Bạn không có các quyền sau để thực hiện lệnh này: ```\n{}```" \
             .format(", ".join(perms_translations.get(perm, perm) for perm in error.missing_permissions))
+            
+    elif isinstance(error, commands.NSFWChannelRequired):
+        error_txt = "Kênh hiện tại không thể triển khai lệnh này (Lệnh này yêu cầu kênh phải bật giới hạn độ tuổi [NSFW])"
 
     elif isinstance(error, GenericError):
         error_txt = error.text
@@ -161,7 +164,7 @@ def parse_error(
                          "`Nếu muốn, bạn có thể thêm dấu trang hoặc nhúng để sử dụng " \
                          "lệnh mà không bao gồm tên hoặc liên kết. Bạn có thể làm như vậy bằng cách nhấp vào một trong các nút bên dưới.`"
             
-        mention_author = True
+        mention_author = False
 
         components = [
             disnake.ui.Button(label="Mở trình quản lý yêu thích",
