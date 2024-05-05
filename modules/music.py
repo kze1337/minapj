@@ -639,8 +639,7 @@ class Music(commands.Cog):
                     func = inter.edit_original_message
                 await func(
                     embed=disnake.Embed(
-                        description=f"**{inter.author.mention} thao tác đã bị hủy.**\n"
-                                     f"**Tôi sẽ mất một lúc để kết nối với kênh giọng nói/sân khấu.**", color=color
+                        description=f"**{inter.author.mention} thao tác đã bị hủy.**\n", color=color
                     )
                 )
                 return
