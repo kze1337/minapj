@@ -6711,7 +6711,6 @@ class Music(commands.Cog):
                 except Exception:
                     traceback.print_exc()
 
-        player.members_timeout_task = player.bot.loop.create_task(player.members_timeout(check=bool(check)))
 
         if check:
             try:
@@ -6720,6 +6719,8 @@ class Music(commands.Cog):
                 pass
             player.auto_skip_track_task = None
 
+        player.members_timeout_task = player.bot.loop.create_task(player.members_timeout(check=bool(check)))
+        
         if not member.guild.me.voice:
             await asyncio.sleep(1)
             if not player.is_closing and not player._new_node_task:

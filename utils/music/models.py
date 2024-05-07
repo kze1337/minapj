@@ -1201,6 +1201,9 @@ class LavalinkPlayer(wavelink.Player):
                 except:
                     pass
                 return
+            
+            if self.auto_pause:
+                return
 
             if not idle_timeout:
                 idle_timeout = self.bot.config["WAIT_FOR_MEMBERS_TIMEOUT"]
@@ -1216,7 +1219,7 @@ class LavalinkPlayer(wavelink.Player):
 
         if self.keep_connected:
 
-            if self.paused:
+            if self.paused or self.auto_pause:
                 return
 
             self.auto_pause = True
@@ -2224,7 +2227,13 @@ class LavalinkPlayer(wavelink.Player):
 
                         try:
                             await self.message.edit(allowed_mentions=self.allowed_mentions, **data)
+                            await asyncio.sleep(0.5)
+                            
+                        except asyncio.CancelledError:
+                            traceback.print_exc()
+                            return
                         except:
+                            traceback.print_exc()
                             self.text_channel = self.bot.get_channel(self.text_channel.id)
 
                             if not self.text_channel:
