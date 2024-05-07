@@ -412,8 +412,9 @@ class BotPool:
                 async def check_commands(ctx: CustomContext):
 
                     if not (await bot.is_owner(ctx.author)):
-                        raise GenericError("**Text commands are disabled!\n"
-                                            "Use the forward slash commands /**", self_delete=True, delete_original=15)
+                        raise GenericError("**Hiện tại bot đang bắt đầu chuyển sang sử dụng lệnh gạch chéo [/]! (Do thằng Aris lười lấy message intent)\n"
+                                            "Để sử dụng các lệnh hãy [/]**", self_delete=10, delete_original=20)
+                        
 
                     return True
 

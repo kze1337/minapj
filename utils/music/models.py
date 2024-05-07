@@ -1238,7 +1238,7 @@ class LavalinkPlayer(wavelink.Player):
             if self.is_closing:
                 return
 
-            msg = f"**Người chơi đã bị tắt vì thiếu thành viên trên kênh" + (f"<#{self.guild.me.voice.channel.id}>"
+            msg = f"**Trình phát đã bị tắt vì thiếu thành viên trên kênh" + (f"<#{self.guild.me.voice.channel.id}>"
                                                                                if self.guild.me.voice else '') + "...**"
             self.command_log = msg
             if not self.static and not self.has_thread:
