@@ -90,7 +90,9 @@ class ChatGPT(commands.Cog):
                     )
                     await ctx.edit_original_response(embed=embed)
                     if model == "gpt-3.5-turbo": # GPT 3.5 (FREE)
-                        response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
+                        # response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
+                        await ctx.send("Hiện tại thằng Aris đang lười mua thêm chatGPT 3.5, nên model này không hoạt động <:Nerdpixel:1230475354003476531>", delete_after=(10 if not private else None), components=None)
+                        return
                     if model == "gemini": # GEMINI AI (NEW)
                         response = await gemini(content)
                     if response["status"] == "error":
@@ -104,7 +106,7 @@ class ChatGPT(commands.Cog):
                         used, left = use["used"], use["left"]
 
                 except Exception:
-                    await ctx.edit_original_response("Đã xảy ra lỗi", embed=None)
+                    await ctx.edit_original_response("Đã xảy ra lỗi :<", embed=None, delete_after=5)
                     traceback.print_exc()
                     return
                     
