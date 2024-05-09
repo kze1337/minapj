@@ -4267,14 +4267,14 @@ class Music(commands.Cog):
 
     playerinfo_cd = commands.CooldownMapping.from_cooldown(1, 7, commands.BucketType.member)
 
-    @commands.command(name="playerinfo", aliases=["pinfo"], cooldown=playerinfo_cd,
+    @commands.command(name="nowplaying", aliases=["nplaying"], cooldown=playerinfo_cd,
                       description="Hiển thị thông tin người chơi bạn đang hoạt động.")
-    async def playerinfo_legacy(self, ctx: CustomContext):
-        await self.player_info.callback(self=self, inter=ctx)
+    async def nowplaying_legacy(self, ctx: CustomContext):
+        await self.nowplaying.callback(self=self, inter=ctx)
 
     @commands.slash_command(description=f"{desc_prefix}Hiển thị thông tin người chơi đang hoạt động.",
                             cooldown=playerinfo_cd, dm_permission=False)
-    async def player_info(self, inter: disnake.AppCmdInter):
+    async def nowplaying(self, inter: disnake.AppCmdInter):
         await inter.response.defer(ephemeral=True)
 
         for bot in self.bot.pool.bots:
@@ -4320,6 +4320,8 @@ class Music(commands.Cog):
 
                     txt = f"### Thông tin người chơi mà người dùng {inter.author.mention} đang hoạt động:\n\n" \
                         f"> <:play:1140220726327136427> **⠂Bài hát hiện tại:** [`{fix_characters(player.current.title, 30)}`]({player.current.uri or player.current.search_uri})\n"
+                    
+                    txt += f"> <:gxplayer:1203882663958548492> **⠂Nguồn:** {player.current.info['sourceName']}\n"
 
                     if player.current.playlist:
                         txt += f"> <:playlist:1140220773051678811> **⠂Danh sách phát:** [`{fix_characters(player.current.playlist_name, 28)}`]({player.current.playlist_url})\n"
@@ -4327,8 +4329,8 @@ class Music(commands.Cog):
                     if player.queue:
                         txt += f"> <:musicalbum:1183394320292790332> **⠂Các bài hát trong hàng đợi** {len(player.queue)}\n"
 
-                    txt += f"> `🔊` **⠂{'Kênh thoại' if isinstance(vc, disnake.VoiceChannel) else 'Sân khấu'}:** {vc_name}\n"\
-                           f"> `🎧` **⠂Người nghe hiện tại:** `{len([m for m in vc.members if not m.bot and (not m.voice.self_deaf or not m.voice.deaf)])}`\n"\
+                    txt += f"> 🔊 **⠂{'Kênh thoại' if isinstance(vc, disnake.VoiceChannel) else 'Sân khấu'}:** {vc_name}\n"\
+                           f"> 🎧 **⠂Người nghe hiện tại:** `{len([m for m in vc.members if not m.bot and (not m.voice.self_deaf or not m.voice.deaf)])}`\n"\
                            f"> <:timeout:1155781760571949118> **⠂Hoạt động kể từ:** <t:{player.uptime}:f> - <t:{player.uptime}:R>\n"
 
                     embed = disnake.Embed(description=txt, color=self.bot.get_color(player.guild.me),)
