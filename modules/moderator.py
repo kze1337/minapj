@@ -43,9 +43,12 @@ class Moderator(commands.Cog):
     @commands.bot_has_permissions(ban_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    async def ban(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
+    async def ban(self, ctx: CustomContext, member: disnake.Member = None, *, reason: str = None):
         if ctx.author.bot:
             return
+        
+        if member is None:
+            await ctx.send("Vui lòng đưa ra 1 cái tên")
         
         if member == ctx.guild.me:
             return
@@ -77,9 +80,11 @@ class Moderator(commands.Cog):
     @commands.bot_has_permissions(ban_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    async def unban(self, ctx: CustomContext, member: disnake.User, *, reason: str = None):
+    async def unban(self, ctx: CustomContext, member: disnake.User = None, *, reason: str = None):
         if ctx.author.bot:
             return
+        if member is None:
+            await ctx.send("Vui lòng đưa ra 1 cái tên")
         if reason is None:
             reason = "Không có lý do"
         await ctx.guild.unban(member, reason=reason)
@@ -90,9 +95,11 @@ class Moderator(commands.Cog):
     @commands.bot_has_permissions(kick_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    async def kick(self, ctx: CustomContext, member: disnake.Member, *, reason: str = None):
+    async def kick(self, ctx: CustomContext, member: disnake.Member=None, *, reason: str = None):
         if ctx.author.bot:
             return
+        if member is None:
+            await ctx.send("Vui lòng đưa ra 1 cái tên")
         if member == ctx.guild.me:
             return
         
@@ -122,9 +129,14 @@ class Moderator(commands.Cog):
     @commands.bot_has_permissions(moderate_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    async def mute(self, ctx: CustomContext, member: disnake.Member, time: str, *, reason: str = None):
+    async def mute(self, ctx: CustomContext, member: disnake.Member = None, time: str = None, *, reason: str = None):
         if ctx.author.bot:
             return
+        if member is None:
+            await ctx.send("Vui lòng đưa ra 1 cái tên")
+            
+        if time is None:
+            await ctx.send("Hãy đưa ra một thời lượng cụ thể để thực thi lệnh")
         if member == ctx.guild.me:
             return
         
