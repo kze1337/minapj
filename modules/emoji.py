@@ -1,19 +1,14 @@
 import disnake
-from disnake import OptionType, File, utils
-from disnake import Option, AppCommandInteraction, ApplicationCommandInteraction, OptionChoice
+from disnake import OptionType
+from disnake import Option, ApplicationCommandInteraction, OptionChoice
 from disnake.ext import commands
 
-import random
 from random import randint
 import aiohttp
 import re
 from urllib.parse import urlparse
 from utils.client import BotCore
 from asyncio import sleep
-from traceback import print_exc
-
-
-# Something xamlul
 
 def gen_error_embed(error_msg: str):
     embed = disnake.Embed(title="❌ Đã xảy ra lỗi khi tạo emoji",
@@ -162,18 +157,6 @@ class emoji(commands.Cog):
                     "name": emoji_name,
                     "url": emoji_url
                     })
-        
-        from utils.music.errors import GenericError
-
-       # try:    
-       #     check_emoji = await check_duplicate_emoji(ctx, list_emoji[0]["name"])
-       #     if check_emoji["status"] == "error":
-       #          return
-       # except IndexError:
-       #     raise GenericError("Đã xảy ra lỗi khi thêm emoji, vui lòng thử lại :E")
-            
-     
-        
         
         if len(list_emoji) == 0:
             embed = disnake.Embed(
