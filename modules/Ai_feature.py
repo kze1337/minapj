@@ -10,14 +10,11 @@ from disnake import OptionType, OptionChoice
 from utils.client import BotCore
 from utils.GenEMBED import Embed
 from utils.music.checks import can_send_message_check, can_send_message
-from utils.ai.chatgpt import chatgpt, create_thread
-from utils.ai.rsnApi import gemini
+from utils.ai.rsnApi import gemini, gpt
 import datetime
 
 import os
 import dotenv
-
-from asgiref.sync import sync_to_async
 
 dotenv.load_dotenv()
 
@@ -91,8 +88,9 @@ class ChatGPT(commands.Cog):
                     await ctx.edit_original_response(embed=embed)
                     if model == "gpt-3.5-turbo": # GPT 3.5 (FREE)
                         # response = await sync_to_async(chatgpt)(content, ctx.author.id if premium else None)
-                        await ctx.edit_original_response("Hiện tại thằng Aris đang lười mua thêm chatGPT 3.5, nên model này không hoạt động <:Nerdpixel:1230475354003476531>", delete_after=(10 if not private else None), components=None)
-                        return
+                        response = await gpt(content)
+                        # await ctx.edit_original_response("Hiện tại thằng Aris đang lười mua thêm chatGPT 3.5, nên model này không hoạt động <:Nerdpixel:1230475354003476531>", delete_after=(10 if not private else None), components=None)
+                        # return
                     if model == "gemini": # GEMINI AI (NEW)
                         response = await gemini(content)
                     if response["status"] == "error":
@@ -162,25 +160,6 @@ class ChatGPT(commands.Cog):
                         
                     time.sleep(5)
                     os.remove("response.txt")              
-
-    @ai.sub_command(
-        name="newchat",
-        description=f"{desc_prefix} Tạo đoạn chat mới. Hê thống sẽ liên kết nội dung các câu hỏi trước cho bạn (👑Premium)",
-        options = [
-            disnake.Option(name="prompt", description="Điều bạn muốn chatbot đóng vai.", type=OptionType.string, required=False)
-        ])
-    async def newchat(self, ctx: disnake.ApplicationCommandInteraction, prompt: str = None):
-            await ctx.response.defer(ephemeral=True)
-            userinfo = await check_user(self.bot, ctx, ctx.author.id, premium_check=True)
-            if not userinfo: return
-            else:
-                create_thread(ctx.author.id, sys_message=prompt)
-                embed = disnake.Embed(
-                    title="Đã tạo đoạn chat mới",
-                    description="Hãy sử dụng lệnh `/ai chat` để bắt đầu chat với chatbot",
-                    color=disnake.Color.green()
-                )
-                await ctx.edit_original_response(embed=embed)
 
 def setup(bot: BotCore):
     bot.add_cog(ChatGPT(bot))

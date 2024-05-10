@@ -19,5 +19,14 @@ async def gemini(content: str) -> dict:
 
     }
 
+async def gpt(content: str) -> dict:
+    
+    resp = rsnchat.gpt(content)
+    output = resp.get('message', '')
+    
+    return {
+        "status": "success", "message": output
+
+    }
 #! DISCLAIMER: IF IT WORKS, DON'T TOUCH IT
 #! 免責事項: 動作する場合は、触れないでください。
