@@ -8,7 +8,7 @@ from utils.client import BotCore
 def convert_tm(x: str) -> int:
     _input = x.lower().strip()
     valid = False
-    _time = [0, 0, 0] # [hours, minutes, seconds]
+    _time = [0, 0, 0, 0] # [day, hours, minutes, seconds]
     buffer = ""
     for i in _input:
         if i.isnumeric():
@@ -16,12 +16,13 @@ def convert_tm(x: str) -> int:
             buffer += i
         elif i.isalpha():
             if not buffer.isnumeric(): continue
-            if i in ["h"]:  _time[0] = int(buffer)
-            elif i in ["m", "p"]: _time[1] = int(buffer)
-            elif i in ["s"]: _time[2] = int(buffer)
+            if i in ["d"]: _time[0] = int(buffer)
+            elif i in ["h"]:  _time[1] = int(buffer)
+            elif i in ["m", "p"]: _time[2] = int(buffer)
+            elif i in ["s"]: _time[3] = int(buffer)
             buffer = ""
-    if buffer.isnumeric(): _time[2] = int(buffer)
-    um = _time[0] * 3600 + _time[1] * 60 + _time[2]
+    if buffer.isnumeric(): _time[3] = int(buffer)
+    um = _time[0] * 86400 + _time[1] * 3600 + _time[2] * 60 + _time[3]
     return {
         "valid": True, 
         "tm": um
@@ -181,7 +182,8 @@ class Moderator(commands.Cog):
             await ctx.send(f"Người dùng {member.mention} không bị hạn chế")
             return
         try: 
-            member.timeout(duration=0, reason=f"Unmute by {ctx.author.name}")
+            await member.timeout(duration=0, reason=f"Unmute by {ctx.author.name}")
+            await ctx.send(f"Đã unmute cho người dùng {member.name}")
         except Exception as e:
             if "Missing Permissions" in str(e):
                 await ctx.send("Tui chưa có quyền để thực hiện lệnh này, hãy đảm bảo đã thêm đủ quyền \n https://i.ibb.co/bsqLmRR/image.png")
