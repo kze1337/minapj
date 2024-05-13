@@ -9,29 +9,6 @@ import re
 from urllib.parse import urlparse
 from utils.client import BotCore
 from asyncio import sleep
-
-def gen_error_embed(error_msg: str):
-    embed = disnake.Embed(title="❌ Đã xảy ra lỗi khi tạo emoji",
-                          description=f"```{error_msg}```",
-                          color=disnake.Color.red())
-    embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/1172052818501308427/1176426375704498257/1049220311318540338.png?ex=656ed370&is=655c5e70&hm=11d80b14a3ca28d04f7ac48d3a39b0c6d5947d20c9ae78cee9a4e511ce65f301&")
-    return embed
-
-async def check_duplicate_emoji(ctx: disnake.AppCommandInter, name: str):
-        if not any(emoji.name == name for emoji in ctx.guild.emojis):
-            return {
-                "status": "success"
-            }
-        else:
-            await ctx.send(embed=gen_error_embed("Tên emoji đã tồn tại"), ephemeral=True)
-            print(f"[CMD - LOG : ERROR]{ctx.guild.name} - {ctx.guild.id} - {ctx.author.name} - {ctx.author.id} - {name} - Duplicate emoji")
-            return {
-                "status": "error"
-            }   
-
-
-    
-    
 class emoji(commands.Cog):
     def __init__(self, bot) -> None:
         self.bot: commands.Bot = bot
