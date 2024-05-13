@@ -218,7 +218,7 @@ class Moderator(commands.Cog):
             await ctx.edit_original_response("Thêm số lượng tin nhắn cần xóa !")
             return
         if amount > 100:
-            await ctx.response.send_message(embed=disnake.Embed(title="❌ Số lượng tin nhắn cần xóa không được lớn hơn 100", color=disnake.Color.red()))
+            await ctx.edit_original_response(embed=disnake.Embed(title="❌ Số lượng tin nhắn cần xóa không được lớn hơn 100", color=disnake.Color.red()))
             return
         deleted = await ctx.channel.purge(limit=amount)
         try:
