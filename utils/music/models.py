@@ -846,7 +846,7 @@ class LavalinkPlayer(wavelink.Player):
                     await asyncio.sleep(3)
 
                     current_node: wavelink.Node = self.bot.music.nodes[self.node.identifier]
-                    current_node.close()
+                    # current_node.close()
 
                     for player_id in list(self.node.players):
 
