@@ -838,7 +838,7 @@ class LavalinkPlayer(wavelink.Player):
 
                     await send_report()
 
-                    self.node.available = False
+                    # self.node.available = False
 
                     if self.node._closing:
                         return
@@ -1174,10 +1174,7 @@ class LavalinkPlayer(wavelink.Player):
 
             try:
                 if update_log:
-                    try:
-                        self.auto_skip_track_task.cancel()
-                    except:
-                        pass
+                    self.set_command_log(emoji="🔰", text="Bài hát đã được tiếp tục phát")
                     if self.current:
                         await asyncio.sleep(1.5)
                         await self.invoke_np(rpc_update=True)
@@ -1223,15 +1220,11 @@ class LavalinkPlayer(wavelink.Player):
                 return
 
             self.auto_pause = True
-            track = self.current
-            await self.stop()
-            self.current = track
-            try:
-                self.auto_skip_track_task.cancel()
-            except:
-                pass
-            self.auto_skip_track_task = self.bot.loop.create_task(self.auto_skip_track())
-            await self.update_stage_topic()
+            await self.set_pause(True)
+            self.set_command_log(text=f"Trình phát đã bị tạm dừng do thiếu thành viên trên kênh. "
+                                      f"Bài hát sẽ tự động tiếp tục khi một thành viên tham gia kênh "
+                                      f"<#{self.channel_id}>.", emoji="🔋")
+            await self.invoke_np()
 
         else:
 
