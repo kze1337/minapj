@@ -959,16 +959,7 @@ class LavalinkPlayer(wavelink.Player):
             if event.code == 4014 and self.guild.me.voice:
                 pass
             else:
-                print(
-                    ("-" * 15) +
-                    f"\nLỗi kênh thoại!"
-                    f"\nBot: {self.bot.user} [{self.bot.user.id}] | " + (
-                        "Online" if self.bot.is_ready() else "Offline") +
-                    f"\nGuild: {self.guild.name} [{self.guild.id}]"
-                    f"\nChannel: {vc.name} [{vc.id}]"
-                    f"\nServer: {self.node.identifier} | code: {event.code} | reason: {event.reason}\n" +
-                    ("-" * 15)
-                )
+                pass
 
             if self.is_closing:
                 return
@@ -1736,7 +1727,7 @@ class LavalinkPlayer(wavelink.Player):
                         description=f"Nghe lại: {play_txt[:31]}"
                     ),
                     disnake.SelectOption(
-                        label="Bật tự động phát (AutoPilot)", emoji="<:pnv_blurpleplane:1172811762819670056>",
+                        label="Bật tự động phát (AutoPilot)", emoji="🎶",
                         value=PlayerControls.autoplay,
                         description=f"Phát nhạc liên quan đến: {play_txt[:19]}"
                     ),
@@ -1753,7 +1744,7 @@ class LavalinkPlayer(wavelink.Player):
 
         controller_opts.append(
             disnake.SelectOption(
-                emoji="<:stop:1172811767525675028>", value=PlayerControls.stop, label="Tắt nhạc",
+                emoji="🛑", value=PlayerControls.stop, label="Tắt nhạc",
                 description=f"Tắt nhạc"
             ),
         )
@@ -2223,10 +2214,10 @@ class LavalinkPlayer(wavelink.Player):
                             await asyncio.sleep(0.5)
                             
                         except asyncio.CancelledError:
-                            traceback.print_exc()
+                            # traceback.print_exc()
                             return
                         except:
-                            traceback.print_exc()
+                            # traceback.print_exc()
                             self.text_channel = self.bot.get_channel(self.text_channel.id)
 
                             if not self.text_channel:
@@ -2271,7 +2262,7 @@ class LavalinkPlayer(wavelink.Player):
                         return
                     except Exception as e:
                         self.updating = False
-                        traceback.print_exc()
+                        # traceback.print_exc()
                         if self.static or self.has_thread:
                             self.set_command_log(
                                 f"{(interaction.author.mention + ' ') if interaction else ''}Có lỗi trong tương tác: {repr(e)}",
@@ -2286,7 +2277,7 @@ class LavalinkPlayer(wavelink.Player):
                     self.message = await self.text_channel.send(allowed_mentions=self.allowed_mentions,
                                                                 **data)
                 except:
-                    traceback.print_exc()
+                    pass
 
             self.start_message_updater_task()
 
@@ -2334,7 +2325,7 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     await self.invoke_np()
                 except:
-                    traceback.print_exc()
+                    pass
 
                 continue
 
@@ -2343,7 +2334,7 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     await self.invoke_np()
                 except:
-                    traceback.print_exc()
+                    pass
 
                 self.update = False
 
@@ -2391,7 +2382,7 @@ class LavalinkPlayer(wavelink.Player):
         try:
             await self.process_rpc(vc, close=True)
         except:
-            traceback.print_exc()
+            pass
 
         if self.guild.me:
 
@@ -2402,7 +2393,7 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     await send_idle_embed(inter or self.message, self.command_log, bot=self.bot)
                 except:
-                    traceback.print_exc()
+                    # traceback.print_exc()
                     pass
 
                 if self.purge_mode == SongRequestPurgeMode.on_player_stop:
@@ -2473,7 +2464,7 @@ class LavalinkPlayer(wavelink.Player):
                     else:
                         await self.destroy_message()
                 except Exception:
-                    traceback.print_exc()
+                    pass
 
         try:
             self.message_updater_task.cancel()
@@ -2505,7 +2496,7 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     await self.process_save_queue()
                 except:
-                    traceback.print_exc()
+                    pass
 
                 try:
                     if self.current.is_stream:
@@ -2523,7 +2514,7 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     await self.track_end()
                 except Exception:
-                    traceback.print_exc()
+                    pass
 
                 try:
                     await self.process_next()
@@ -2533,18 +2524,17 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     await self.invoke_np(force=True)
                 except:
-                    traceback.print_exc()
+                    pass
 
                 try:
                     await self.update_stage_topic()
                 except Exception:
-                    traceback.print_exc()
+                    pass
 
             except asyncio.CancelledError:
                 return
 
             except Exception:
-                traceback.print_exc()
                 return
 
     async def resolve_track(self, track: PartialTrack):
@@ -2615,7 +2605,7 @@ class LavalinkPlayer(wavelink.Player):
             track.info["length"] = selected_track.duration
 
         except Exception as e:
-            traceback.print_exc()
+            # traceback.print_exc()
             embed = disnake.Embed(
                 description=f"**Không lấy được thông tin PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
                              f"**Máy chủ âm nhạc:** `{self.node.identifier}`",
@@ -2659,7 +2649,7 @@ class LavalinkPlayer(wavelink.Player):
                 await self.change_node(node.identifier)
                 self.locked = False
             except:
-                traceback.print_exc()
+                # traceback.print_exc()
                 await asyncio.sleep(5)
                 continue
 
@@ -2680,7 +2670,7 @@ class LavalinkPlayer(wavelink.Player):
                 else:
                     await self.invoke_np(force=True)
             except:
-                traceback.print_exc()
+                pass
 
             self._new_node_task = None
             return

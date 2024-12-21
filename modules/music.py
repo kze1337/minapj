@@ -791,8 +791,8 @@ class Music(commands.Cog):
                 try:
                     attachment = inter.message.attachments[0]
 
-                    if attachment.size > 18000000:
-                        raise GenericError("**Tệp bạn gửi phải có kích thước nhỏ hơn hoặc bằng 18mb.**")
+                    if attachment.size > 8388608:
+                        raise GenericError("**Tệp bạn gửi phải có kích thước nhỏ hơn hoặc bằng 8mb.**")
 
                     if attachment.content_type not in self.audio_formats:
                         raise GenericError("**Tệp bạn gửi không phải là định dạng âm nhạc hợp lệ...**")
@@ -1215,7 +1215,7 @@ class Music(commands.Cog):
                     query = query.split("?")[0].replace("/live/", "/watch?v=")
 
                 if not self.bot.config["ENABLE_DISCORD_URLS_PLAYBACK"] and "cdn.discordapp.com/attachments/" in query:
-                    raise GenericError("**Sự hỗ trợ cho các liên kết Discord bị vô hiệu hóa.**")
+                    raise GenericError("**Hỗ trợ cho các liên kết Discord bị vô hiệu hóa.**")
 
                 if query.startswith(("https://youtu.be/", "https://www.youtube.com/")):
 
@@ -1541,7 +1541,7 @@ class Music(commands.Cog):
 
             if tracks.tracks[0].info["sourceName"] == "youtube":
                 try:
-                    async with bot.session.get((oembed_url:=f"https://www.youtube.com/oembed?url={query}")) as r:
+                    async with aiohttp.ClientSession().get((oembed_url:=f"https://www.youtube.com/oembed?url={query}")) as r:
                         try:
                             playlist_data = await r.json()
                         except:
@@ -6252,7 +6252,7 @@ class Music(commands.Cog):
             error = None
 
             try:
-                async with self.bot.session.get(f"{node.rest_uri}/v4/info", timeout=45, headers=node.headers) as r:
+                async with aiohttp.ClientSession().get(f"{node.rest_uri}/v4/info", timeout=45, headers=node.headers) as r:
                     if r.status == 200:
                         node.version = 4
                         node.info = await r.json()
@@ -6333,7 +6333,7 @@ class Music(commands.Cog):
                 else:
                     await asyncio.sleep(backoff)
                     try:
-                        async with self.bot.session.get(f"{data['rest_uri']}/v4/info", timeout=45, headers=headers) as r:
+                        async with aiohttp.ClientSession().get(f"{data['rest_uri']}/v4/info", timeout=45, headers=headers) as r:
                             if r.status == 200:
                                 info = await r.json()
                                 data["version"] = 4
@@ -6351,7 +6351,7 @@ class Music(commands.Cog):
 
         else:
             try:
-                async with self.bot.session.get(f"{data['rest_uri']}/v4/info", timeout=45, headers=headers) as r:
+                async with aiohttp.ClientSession().get(f"{data['rest_uri']}/v4/info", timeout=45, headers=headers) as r:
                     if r.status == 200:
                         data["version"] = 4
                         info = await r.json()
