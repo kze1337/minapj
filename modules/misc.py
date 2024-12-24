@@ -987,7 +987,7 @@ class GuildLog(commands.Cog):
             description=f"__**{title}:**__\n"
                         f"```{guild.name}```\n"
                         f"**ID:** `{guild.id}`\n"
-                        f"**Chủ sở hữu:** `{guild.owner} [{guild.owner.id}]`\n"
+                        f"**Chủ sở hữu:** `{guild.owner}`\n"
                         f"**Ngày tạo** <t:{created_at}:f> - <t:{created_at}:R>\n"
                         f"**Cấp xác minh:** `{guild.verification_level or 'không có'}`\n"
                         f"**Số người dùng:** `{len([m for m in guild.members if not m.bot])}`\n"

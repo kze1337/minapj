@@ -165,7 +165,7 @@ class BotPool:
         if e:
 
             if isinstance(e, disnake.PrivilegedIntentsRequired):
-                print(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}\n" + ("=" * 30))
+                print(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}: {e}\n" + ("=" * 30))
 
             elif isinstance(e, disnake.LoginFailure) and "Improper token" in str(e):
                 print(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}\n" + ( "=" * 30))
@@ -300,9 +300,11 @@ class BotPool:
 
         #!!! INTENTS
         intents = disnake.Intents(**{i[:-7].lower(): v for i, v in self.config.items() if i.lower().endswith("_intent")})
-        intents.members = True
+        intents.members = False
         intents.guilds = True
         intents.messages = True
+        intents.message_content = False
+        intents.voice_states = True
 
         mongo_key = self.config.get("MONGO")
 
@@ -583,6 +585,16 @@ class BotPool:
 
             self.bots.append(bot)
 
+            async def init_setup():
+                await bot.wait_until_ready()
+
+                if bot.session is None:
+                    bot.session = aiohttp.ClientSession()
+
+                bot.music.session = bot.session
+            
+            bot.loop.create_task(init_setup())
+
         if len(all_tokens) > 1:
             self.single_bot = False
 
@@ -647,7 +659,7 @@ class BotCore(commands.AutoShardedBot):
         self.pool: BotPool = kwargs.pop('pool')
         self.default_prefix = kwargs.pop("default_prefix", "!!")
         self.spotify: Optional[spotipy.Spotify] = self.pool.spotify
-        self.session = aiohttp.ClientSession()
+        self.session: Optional[aiohttp.ClientSession] = None
         self.color = kwargs.pop("embed_color", None)
         self.identifier = kwargs.pop("identifier", "")
         self.appinfo: Optional[disnake.AppInfo] = None
@@ -776,17 +788,17 @@ class BotCore(commands.AutoShardedBot):
         return await self.pool.database.update_data(
             id_=id_, data=data, db_name=db_name, collection="global", default_model=global_db_models
         )
-    
-    
-    async def setup_database(self):
-        db: aiosqlite.Connection = await aiosqlite.connect(database="databases/users.sqlite")
-        print(f"{Fore.GREEN}[Sqlite3] [MONGODB USER API] - [OK] Linked user database successfully!{Style.RESET_ALL}")
-        await self.db_handler._initalize(db)
-        return db
-    
-    async def on_ready(self):   
-        self.db = await self.db_handler.initalize()
-        self.db = await self.setup_database()
+
+    async def close(self) -> None:
+        await super().close()
+        self.log.info("Cleaning up...")
+        if os.path.exists("data_tts"):
+            for item in os.listdir("data_tts"):
+                item_path = os.path.join("data_tts", item)
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                else:
+                    os.remove(item_path)
 
     def check_skin(self, skin: str):
 

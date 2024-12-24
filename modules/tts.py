@@ -1,29 +1,102 @@
-import disnake
-from gtts import gTTS
-from disnake.ext import commands
-from disnake import FFmpegPCMAudio
-import asyncio
+from __future__ import annotations
+
+import logging
+import os
 import re
-import platform
+import aiosqlite
 import traceback
 
-import os
+import disnake
+from disnake import FFmpegOpusAudio
+from disnake.ext import commands
+from gtts import gTTS
+from asgiref.sync import sync_to_async as s2a
+
 from utils.client import BotCore as Client
-from utils.others import CommandArgparse, pool_command, CustomContext
-from utils.music.checks import check_voice
+
+LANGUAGE_LIST = ["English", "Tiếng Việt", "日本語", "русский", "中国人"]
 
 
+def check_voice():
+
+    async def predicate(inter):
+
+
+        guild = inter.guild
+
+        try:
+            if not inter.author.voice:
+                await inter.send("Nya Nya nyan, pliz join a voice channel")
+                return
+        except AttributeError:
+            pass
+
+        if not guild.me.voice:
+
+            perms = inter.author.voice.channel.permissions_for(guild.me)
+
+            if not perms.connect:
+                await inter.send("Nya! 💢, I dont have perm to connect to your channel")
+                return
+
+        try:
+            if inter.author.id not in guild.me.voice.channel.voice_states:
+                return
+        except AttributeError:
+            pass
+
+        return True
+
+    return commands.check(predicate)
+
+
+async def save_lang_tts(guildID, language):
+    async with aiosqlite.connect("langDB.sql") as comm:
+        cur = await comm.cursor()
+        await cur.execute("""INSERT INTO guildLang (guildID, language) VALUES (?, ?)""", (guildID, language))
+        await comm.commit()
+
+async def get_tts_lang(guildID):
+    async with aiosqlite.connect("langDB.sql") as comm:
+            mouse = await comm.cursor()
+            await mouse.execute("SELECT language FROM guildLang WHERE guildID = ?", (guildID,))
+            data = await mouse.fetchone()
+            if not data:
+                return "Tiếng Việt"
+
+            return data[0]
+
+
+async def setup_table() -> None:
+    async with aiosqlite.connect("langDB.sql") as comm:
+        mouse = await comm.cursor()
+        await mouse.execute("""CREATE TABLE IF NOT EXISTS guildLang(
+                                                    guildID INTEGER,
+                                                    language TEXT DEFAULT 'Tiếng Việt')""")
+        await comm.commit()
 
 
 async def check_lang(lang):
     pattern = r"^[a-z]{2}$"
     return bool(re.match(pattern, lang))
 
-async def process_tts(text, guild_id, channel_id, lang, bot_id):
+
+async def convert_language(lang):
+    langlist = {"English": "en",
+                "Tiếng Việt": "vi",
+                "日本語": "ja",
+                "русский": "ru",
+                "中国人": "zh"
+                }
+    return langlist.get(lang, "vi")
+
+
+def process_tts(text, guild_id, channel_id, lang):
     tts = gTTS(text, lang=lang)
-    if not os.path.exists(f'./data_tts/{bot_id}/{guild_id}'):
-        os.makedirs(f'./data_tts/{bot_id}/{guild_id}')
-    tts.save(f'./data_tts/{bot_id}/{guild_id}/{channel_id}_tts.mp3')
+    if not os.path.exists(f'./data_tts/{guild_id}'):
+        os.makedirs(f'./data_tts/{guild_id}')
+    tts.save(f'./data_tts/{guild_id}/{channel_id}_tts.mp3')
+
 
 class TTS(commands.Cog):
     emoji = "🔊"
@@ -33,119 +106,102 @@ class TTS(commands.Cog):
     def __init__(self, bot: Client):
         self.bot = bot
 
-    say_flags = CommandArgparse()
-    say_flags.add_argument("text", nargs="*", help="Văn bản cần chuyển thành âm thanh")
-    say_flags.add_argument("-lang", '-lg', type=str, default="vi", help="Ngôn ngữ cần chuyển, mặc định là tiếng việt")
+    @commands.Cog.listener("on_ready")
+    async def initalize(self):
+        try:
+            await setup_table()
+        except Exception as e:
+            print(e)
 
-    @check_voice()
     @commands.cooldown(1, 5, commands.BucketType.user)
-    @commands.max_concurrency(1, per=commands.BucketType.member, wait=False)
-    @pool_command(description=f"{desc_prefix}Tạo âm thanh từ văn bản", extras={"flags": say_flags}, aliases=["s", "speak"])
-    async def say(self, ctx: CustomContext, *, flags: str = ""):
-        if platform.system() == "Windows":
-            await ctx.channel.send("Hãy xài WSL hoặc chỉnh sửa lại cấu trúc code để module này hoạt động!")
+    @commands.command(description=f"{desc_prefix}Tạo âm thanh từ văn bản", aliases=["s", "speak"])
+    async def say(self, ctx: disnake.AppCommandInteraction, *, content = None):
+
+        if content is None:
             return
 
-        FFMPEG_OPTIONS = {
-        'before_options': '', 'options': '-vn'}
+        if not ctx.author.voice:
+            await ctx.send("Bạn chưa vào voice channel")
+            return
 
-        args, unknown = ctx.command.extras['flags'].parse_known_args(flags.split())
-        text = " ".join(args.text + unknown)
-        
-        if text.lower() == "gay":
-            _gayvc = ctx.author.voice.channel
-            try:
-                vc = await _gayvc.connect()
-            except Exception as e:
-                if "Already connected to a voice channel" in str(e):
-                    vc = ctx.author.guild.voice_client
-                else:
-                    vc = ctx.author.guild.voice_client
-            try:
-                vc.play(FFmpegPCMAudio(source="./Funny_sound/gay.mp3", **FFMPEG_OPTIONS))
-                while vc.is_playing():
-                    await asyncio.sleep(2)
-            except Exception as e:
-                if "ffmepg was not found" in str(e):
-                    await ctx.channel.send("Không tìm thấy ffmpeg, hãy chắc chắn rằng bạn đã chạy tệp autoinstall.sh`")
-                    traceback.print_exc()
-                    return
-                else:
-                    traceback.print_exc()
-                    await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
-                    return
-        else:
-        
-            # Save TTS file
-            try:
-                check = await check_lang(args.lang)
-                if check == False:
-                    await ctx.channel.send("Ngôn ngữ không được hỗ trợ, nếu bạn muốn xài ngôn ngữ khác hãy chắc chắn là nó là 2 kí tự đầu của ngôn ngữ đó, tham khảo trang web sau: [WEB](https://cloud.google.com/speech-to-text/docs/speech-to-text-supported-languages)")
-                    return
-                
-                await process_tts(text, ctx.guild.id, ctx.channel.id, args.lang, ctx.bot.user.id)
-            except Exception as e:
-                if "Language not supported" in str(e):
-                    await ctx.channel.send("Ngôn ngữ không được hỗ trợ, nếu bạn muốn xài ngôn ngữ khác hãy chắc chắn là nó là 2 kí tự đầu của ngôn ngữ đó, ví dụ: \njapan: ja.")
-                    return
-            
-            
-            channel = ctx.author.voice.channel
-            
-            try:
-                vc = await channel.connect()
-            except Exception as e:
-                if "Already connected to a voice channel" in str(e):
-                    vc = ctx.author.guild.voice_client
-                else:
-                    vc = ctx.author.guild.voice_client
+        if not ctx.guild.me.voice:
 
-            global channel_id, guild_id
+            perms = ctx.author.voice.channel.permissions_for(ctx.guild.me)
 
-            channel_id = ctx.channel.id
-            guild_id = ctx.guild.id
+            if not perms.connect:
+                await ctx.send("Tui không có quyền kết nối vào kênh này")
+                return
 
 
-            try:
-                vc.play(FFmpegPCMAudio(f"./data_tts/{ctx.bot.user.id}/{guild_id}/{channel_id}_tts.mp3", **FFMPEG_OPTIONS))
-                
-                while vc.is_playing():
-                    await asyncio.sleep(3)
-            except Exception as e:
-                if "ffmepg was not found" in str(e):
-                    await ctx.channel.send("Không tìm thấy ffmpeg, hãy chắc chắn rằng bạn đã chạy tệp autoinstall.sh`")
-                    traceback.print_exc()
-                    return
-                else:
-                    traceback.print_exc()
-                    await ctx.channel.send(f"Có thể bot đang phát nhạc, vui lòng tắt nhạc và thử lại :>")
-                    return
-            
-    # async def delete_tts_data(guild, channel_id):
-    #     try:
-    #         os.remove(f"./data_tts/{guild}/{channel_id}_tts.mp3")
-    #     except FileNotFoundError:
-    #         pass
-    #     except Exception as e:
-    #         print(repr(e))
-            
+        lang = await get_tts_lang(ctx.author.guild.id)
+        convlang = await convert_language(lang)
 
-    @check_voice()
-    @commands.command(description=f"{desc_prefix}Ngắt kết nối với kênh thoại", aliases=["stoptts"])
+        # Task
+
+        channel = ctx.author.voice.channel
+
+        vc = ctx.author.guild.voice_client
+
+        if not vc:
+            await ctx.send("Đang kết nối, Khi dùng xong thì xài lệnh `stoptts` cho tui!")
+            vc: disnake.VoiceClient = await channel.connect()
+
+        channel_id = ctx.guild.me.voice.channel.id
+        guild_id = ctx.guild.id
+
+        if vc.is_playing():
+            await ctx.send("Đang còn người sử dụng, chờ chút nè...", delete_after=10); return
+
+        await s2a(process_tts)(content, guild_id, channel_id, convlang)
+
+        try:
+            vc.play(FFmpegOpusAudio(f"./data_tts/{guild_id}/{channel_id}_tts.mp3"))
+        except disnake.errors.ClientException as e:
+            if "ffmpeg.exe was not found." or "ffmpeg was not found." in str(e):
+                await ctx.send(f"Đã có lỗi xảy ra, vui lòng báo cho chủ sở hữu bot!")
+                print("Không có ffmpeg hoặc hệ thống không hỗ trợ ffmpeg, vui lòng kiểm tra lại")
+            return await self.bot.close()
+        except Exception: traceback.print_exc(); await ctx.channel.send(f"Cant play TS")
+
+    @commands.command(description=f"{desc_prefix}Disconnect", aliases=["stoptts"])
     async def tts_stop(self, ctx: disnake.ApplicationCommandInteraction):
+
         vc = ctx.author.guild.voice_client
         if vc:
-            await vc.disconnect()
-            await ctx.channel.send("Đã ngắt kết nối với kênh thoại.")
+            if ctx.author.id not in ctx.guild.me.voice.channel.voice_states:
+                await ctx.send("Bạn không ở trên kênh thoại của tui!.", delete_after=7)
+                return
             try:
-                os.remove(f"./data_tts/{ctx.bot.user.id}/{guild_id}/{channel_id}_tts.mp3")
+                os.remove(f"./data_tts/{ctx.guild.id}/{ctx.guild.me.voice.channel.id}_tts.mp3")
             except FileNotFoundError:
-                print("Error at line 122: File Not Found :<")
                 pass
             except Exception as e:
-                await ctx.channel.send(f"Đã xảy ra lỗi: {repr(e)}")
+                await ctx.channel.send(f"Err.")
+                logging.error(f"Error {e}")
+
+            await vc.disconnect()
+            await ctx.send("Đã ngắt kết nối, cảm ơn đã sử dụng ♥.", delete_after=3)
         else:
-            await ctx.channel.send("Tôi đang không kết nối với kênh thoại nào.")
+            await ctx.channel.send("Không có bot đang được sử dụng trên máy chủ")
+
+    @commands.cooldown(1, 15, commands.BucketType.guild)
+    @commands.has_guild_permissions(manage_channels=True)
+    @commands.slash_command(name = "tts_language", description=f"{desc_prefix} Change language for tts module", options=[disnake.Option('language', description='Language', required=True)])
+    async def tts_language(self, ctx: disnake.ApplicationCommandInteraction, language: str = None):
+        if language not in LANGUAGE_LIST:
+            return await ctx.send("Ngôn ngữ nhập vào không hợp lệ!", ephemeral=True)
+        await ctx.response.defer(ephemeral=True)
+        await save_lang_tts(ctx.author.guild.id, language)
+        await ctx.edit_original_response(f"Language changed to: {language}")
+
+    @tts_language.autocomplete('language')
+    async def get_lang(self, inter: disnake.Interaction, lang: str):
+        lang = lang.lower()
+        if not lang:
+            return [lang for lang in LANGUAGE_LIST]
+
+        return [lang for lang in LANGUAGE_LIST if lang.lower() == lang.lower()]
+
 
 def setup(bot: Client):
     bot.add_cog(TTS(bot))

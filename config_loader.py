@@ -80,7 +80,7 @@ DEFAULT_CONFIG = {
     ################################################
     ### Sistema de música - RPC (Rich Presence): ###
     ################################################
-    "RUN_RPC_SERVER": True,
+    "RUN_RPC_SERVER": False,
     "RPC_SERVER": "ws://localhost:$PORT/ws",
     "PORT": None,
     "RPC_PUBLIC_URL": "",
@@ -131,12 +131,12 @@ DEFAULT_CONFIG = {
     ##########################
     "MEMBERS_INTENT": False,
     "PRESENCES_INTENT": False,
-    "MESSAGE_CONTENT_INTENT": True,
+    "MESSAGE_CONTENT_INTENT": False,
 
     ##############
     ### Tests ####
     ##############
-    "USE_YTDL": True,
+    "USE_YTDL": False,
     "SILENT_PUBLICBOT_WARNING": False
 }
 
