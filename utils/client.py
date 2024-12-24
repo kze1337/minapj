@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import pickle
+import shutil
 import subprocess
 import traceback
 from configparser import ConfigParser
@@ -34,11 +35,6 @@ from utils.music.spotify import spotify_client
 from utils.others import CustomContext, token_regex, sort_dict_recursively
 from utils.owner_panel import PanelView
 from web_app import WSClient, start
-import aiosqlite
-from colorama import Fore, Style
-import time
-
-from utils.user.user import database_handler
 
 
 class BotPool:
@@ -84,6 +80,7 @@ class BotPool:
         self.controller_bot: Optional[BotCore] = None
         self.current_useragent = self.reset_useragent()
         self.processing_gc: bool = False
+        self.log = logging.getLogger(__name__)
 
     def reset_useragent(self):
         self.current_useragent = generate_user_agent()
@@ -165,10 +162,10 @@ class BotPool:
         if e:
 
             if isinstance(e, disnake.PrivilegedIntentsRequired):
-                print(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}: {e}\n" + ("=" * 30))
+                self.log.error(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}: {e}\n" + ("=" * 30))
 
             elif isinstance(e, disnake.LoginFailure) and "Improper token" in str(e):
-                print(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}\n" + ( "=" * 30))
+                self.log.error(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}\n" + ( "=" * 30))
 
             else:
                 traceback.print_tb(e.__traceback__)
@@ -216,16 +213,6 @@ class BotPool:
 
         self.load_cfg()
 
-        if self.config['ENABLE_LOGGER']:
-
-            if not os.path.isdir("./.logs"):
-                os.makedirs("./.logs")
-
-            logger = logging.getLogger()
-            logger.setLevel(logging.DEBUG)
-            handler = logging.FileHandler(filename='./.logs/disnake.log', encoding='utf-8', mode='w')
-            handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s'))
-            logger.addHandler(handler)
 
         LAVALINK_SERVERS = {}
 
@@ -266,31 +253,6 @@ class BotPool:
 
         start_local = None
 
-        if os.environ.get("HOSTNAME", "").lower() == "squarecloud.app" and self.config.get("SQUARECLOUD_LAVALINK_AUTO_CONFIG", "").lower() != "false":
-            for f in ("squarecloud.config", "squarecloud.app"):
-                try:
-                    square_cfg = dotenv_values(f"./{f}")
-                except:
-                    continue
-                else:
-                    try:
-                        start_local = int(square_cfg["MEMORY"]) >= 490
-                    except KeyError:
-                        pass
-                    else:
-                        self.config["AUTO_DOWNLOAD_LAVALINK_SERVERLIST"] = not start_local
-                        self.config['USE_YTDL'] = int(square_cfg["MEMORY"]) >= 512
-                        self.config['USE_JABBA'] = False
-                        if not square_cfg.get("SUBDOMAIN"):
-                            self.config["RUN_RPC_SERVER"] = False
-                        print("Sử dụng cấu hình tự động tại SquareCloud\n"
-                              f"Lavalink local: {start_local}\n"
-                              f"YTDL: {self.config['USE_YTDL']}\n"
-                              f"Mem: {square_cfg['MEMORY']}\n"
-                              f"Run RPC Server: {self.config['RUN_RPC_SERVER']}\n"
-                              f"Use JABBA: {self.config['USE_JABBA']}")
-                    break
-
         if start_local is None:
 
             if start_local := (self.config['RUN_LOCAL_LAVALINK'] is True or not LAVALINK_SERVERS):
@@ -310,15 +272,15 @@ class BotPool:
 
         if mongo_key:
             self.mongo_database = MongoDatabase(mongo_key, timeout=self.config["MONGO_TIMEOUT"])
-            print("🔰 Database in use:" + Fore.GREEN + " MongoDB", Style.RESET_ALL)
+            self.log.info("🔰 Database in use: MongoDB")
         else:
-            print("🔰 Database in use:" + Fore.CYAN + " TinyMongo", Style.RESET_ALL)
+            self.log.info("🔰 Database in use: TinyMongo")
 
         self.local_database = LocalDatabase()
 
         try:
             self.commit = check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-            print(Fore.GREEN + f"🔰 Current version: {self.commit}\n{'-' * 30}"    )
+            self.log.info(f"🔰 Current version: {self.commit}\n{'-' * 30}")
         except:
             self.commit = None
 
@@ -375,7 +337,7 @@ class BotPool:
                 pass
 
             if not token:
-                print(Fore.RED + f"{bot_name} Ignored (token not provided)...")
+                self.log.warning(f"{bot_name} Ignored (token not provided)...")
                 return
 
             try:
@@ -480,12 +442,12 @@ class BotPool:
                 @bot.listen("on_command")
                 async def command_log(ctx: CustomContext):
 
-                    if (await bot.is_owner(ctx.author)):
+                    if await bot.is_owner(ctx.author):
                         return
 
-                    print(
+                    bot.log.info(
                         f"cmd (prefix) log: [user: {ctx.author} - {ctx.author.id}] - [guild: {ctx.guild.name} - {ctx.guild.id}]"
-                        f" - [cmd: {ctx.message.content}] {datetime.datetime.utcnow().strftime('%d/%m/%Y - %H:%M:%S')} (UTC)\n" + ("-" * 15)
+                        f" - [cmd: {ctx.message.content}]"
                     )
 
             @bot.listen()
@@ -573,15 +535,6 @@ class BotPool:
                     await bot.update_appinfo()
 
                     bot.bot_ready = True
-
-                print(Fore.CYAN + f"Xin chào {bot.owner}, Chúc bạn một ngày tốt lành!", Style.RESET_ALL)
-                print(Fore.RED + f"Prefix của tôi là: {bot.default_prefix}", Style.RESET_ALL)
-                print(Fore.YELLOW + "Disnake version: " + Fore.GREEN + disnake.__version__, Style.RESET_ALL)
-                print("Sử dụng cấu hình:\n"
-                              f"Lavalink local: {start_local}\n"
-                              f"YTDL: {self.config['USE_YTDL']}\n"
-                              f"Run RPC Server: {self.config['RUN_RPC_SERVER']}\n"
-                              f"Use JABBA: {self.config['USE_JABBA']}")
 
             self.bots.append(bot)
 
@@ -676,11 +629,10 @@ class BotCore(commands.AutoShardedBot):
         self.env_owner_ids = set()
         self.dm_cooldown = commands.CooldownMapping.from_cooldown(rate=2, per=30, type=commands.BucketType.member)
         self.number = kwargs.pop("number", 0)
+        self.log = logging.getLogger(__name__)
         super().__init__(*args, **kwargs)
         self.music = music_mode(self)
         self.interaction_id: Optional[int] = None
-        self.db_handler = database_handler() 
-        self.db = None 
 
         for i in self.config["OWNER_IDS"].split("||"):
 
@@ -690,7 +642,7 @@ class BotCore(commands.AutoShardedBot):
             try:
                 self.env_owner_ids.add(int(i))
             except ValueError:
-                print(f"Owner_ID invaid: {i}")
+                self.log.warning(f"Owner_ID invaid: {i}")
 
     async def edit_voice_channel_status(
             self, status: Optional[str], *, channel_id: int, reason: Optional[str] = None
@@ -717,7 +669,7 @@ class BotCore(commands.AutoShardedBot):
                     continue
                 self.player_skins[skin] = skin_file.load()
             except Exception:
-                print(f"Player interface not loading [normal_player]: {traceback.format_exc()}")
+                self.log.error(f"Player interface not loading [normal_player]: {traceback.format_exc()}")
         if self.default_skin not in self.player_skins:
             self.default_skin = "default"
 
@@ -728,7 +680,7 @@ class BotCore(commands.AutoShardedBot):
             skin = skin[:-3]
 
             if skin in self.config["IGNORE_STATIC_SKINS"].split() and skin != "default":
-                print(f"{self.user} | Skin {skin}.py ignored")
+                self.log.warning(f"{self.user} | Skin {skin}.py ignored")
                 continue
 
             try:
@@ -737,7 +689,7 @@ class BotCore(commands.AutoShardedBot):
                     continue
                 self.player_static_skins[skin] = skin_file.load()
             except Exception:
-                print(f"Player interface not loading [static player]: {traceback.format_exc()}")
+                self.log.error(f"Player interface not loading [static player]: {traceback.format_exc()}")
         if self.default_static_skin not in self.player_static_skins:
             self.default_static_skin = "default"
 
@@ -850,7 +802,7 @@ class BotCore(commands.AutoShardedBot):
 
         if current_cmds == synced_cmds:
             if current_cmds:
-                print(f"{Fore.GREEN}{self.user} - The commands are already synchronized.{Style.RESET_ALL}")
+                self.log.info(f"{self.user} - The commands are already synchronized.")
             return
 
         self._command_sync_flags = self.pool.command_sync_config
@@ -906,7 +858,7 @@ class BotCore(commands.AutoShardedBot):
             perm_check = message.channel.permissions_for(message.guild.me).send_messages
 
         if not perm_check:
-            print(f"Can't send message in: {message.channel.name} [{message.channel.id}] (Missing permissions)")
+            self.log.warning(f"Can't send message in: {message.channel.name} [{message.channel.id}] (Missing permissions)")
             return
 
         return True
@@ -1107,19 +1059,12 @@ class BotCore(commands.AutoShardedBot):
                 if not [dev for dev in owners if check_member(dev, guild)]:
                     guilds.add(guild)
 
-            warn_msg = Fore.RED + f"Attention: Bot [{self.user}] (ID: {self.user.id}) has been configured in the developer portal " \
-                   "like public bot\n"  + Style.RESET_ALL 
-            if guilds:
-                warn_msg += "\n\nCurrently the bot is located on servers where the bot owner (or team member) does not "\
-                             f"are or do not have permission to manage the server to add their own bot " \
-                              f"[{self.user}] on the servers below:\n\n" + "\n".join(f"{g.name} [ID: {g.id}]" for g in list(guilds)[:10])
-
-                if (gcount:=len(guilds)) > 10:
-                    warn_msg += F"\nand on more {gcount-10} server(s)."
-
-            print(Fore.LIGHTBLACK_EX + ("="*50) + Style.RESET_ALL + f"\n{warn_msg}\n" + Fore.LIGHTBLACK_EX +("="*50) + Style.RESET_ALL)
+            warn_msg =f"Attention: Bot [{self.user}] (ID: {self.user.id}) has been configured in the developer portal " \
+                   "like public bot\n"
+            self.log.warning(warn_msg)
         else:
-            print(f"{Fore.GREEN}{self.user} - [{self.user.id}] is configured as a private bot.{Style.RESET_ALL}")
+            self.log.info(f"{self.user} - [{self.user.id}] is configured as a private bot.")
+
 
     async def on_application_command_autocomplete(self, inter: disnake.ApplicationCommandInteraction):
 
@@ -1144,7 +1089,7 @@ class BotCore(commands.AutoShardedBot):
 
         if self.config["COMMAND_LOG"] and inter.guild and not (await self.is_owner(inter.author)):
             try:
-                print(f"cmd log: [user: {inter.author} - {inter.author.id}] - [guild: {inter.guild.name} - {inter.guild.id}]"
+                self.log.info(f"cmd log: [user: {inter.author} - {inter.author.id}] - [guild: {inter.guild.name} - {inter.guild.id}]"
                       f" - [cmd: {inter.data.name}] {datetime.datetime.utcnow().strftime('%d/%m/%Y - %H:%M:%S')} (UTC) - {inter.filled_options}\n" + ("-" * 15))
             except:
                 traceback.print_exc()
@@ -1186,27 +1131,24 @@ class BotCore(commands.AutoShardedBot):
                 try:
                     self.reload_extension(module_filename)
                     if self.pool.controller_bot == self and not self.bot_ready:
-                        print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Reloaded {filename}.py.")
+                        self.log.info(f"{bot_name} - Reloaded {filename}.py.")
                     load_status["reloaded"].append(f"{filename}.py")
                 except (commands.ExtensionAlreadyLoaded, commands.ExtensionNotLoaded):
                     try:
                         self.load_extension(module_filename)
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(Fore.GREEN + f"{'=' * 48}\n[✅] {bot_name} - Loaded {filename}.py.")
+                            self.log.info(f"{bot_name} - Loaded {filename}.py.")
                         load_status["loaded"].append(f"{filename}.py")
                     except Exception as e:
                         if self.pool.controller_bot == self and not self.bot_ready:
-                            print(Fore.RED + f"{'=' * 48}\n[❌] {bot_name} - Failed to load/reload module: {filename}")
+                            self.log.error( f"{bot_name} - Failed to load/reload module: {filename}")
                             raise e
                         return load_status
                 except Exception as e:
                     if self.pool.controller_bot == self and not self.bot_ready:
-                        print(Fore.RED + f"{'=' * 48}\n[❌] {bot_name} - Failed to load/reload module: {filename}")
+                        self.log.error(f"{bot_name} - Failed to load/reload module: {filename}")
                         raise e
                     return load_status
-
-        if self.pool.controller_bot == self and not self.bot_ready:
-            print(f"{'=' * 48}")
 
         if not self.config["ENABLE_DISCORD_URLS_PLAYBACK"]:
             self.remove_slash_command("play_music_file")

@@ -4792,7 +4792,7 @@ class Music(commands.Cog):
 
                 if control == PlayerControls.embed_enqueue_playlist:
 
-                    if (retry_after := self.bot.pool.enqueue_playlist_embed_cooldown.get_bucket(interaction).update_rate_limit()):
+                    if retry_after := self.bot.pool.enqueue_playlist_embed_cooldown.get_bucket(interaction).update_rate_limit():
                         raise GenericError(
                             f"**Bạn sẽ phải đợi {int(retry_after)} giây để thêm danh sách phát vào trình phát hiện tại.**")
 
@@ -5922,9 +5922,9 @@ class Music(commands.Cog):
 
         try:
 
-            print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player create at guild: {inter.guild.name}")
+            self.bot.log.info(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player create at guild: {inter.guild.name}")
         except AttributeError:
-            print(f"Player create at guild: {inter.guild.name}")
+            self.bot.log.info(f"Player create at guild: {inter.guild.name}")
 
         return player
 
@@ -6266,15 +6266,15 @@ class Music(commands.Cog):
                 error = repr(e)
 
             backoff *= 1.5
-            print(
-                f'❌ {self.bot.user} - Failed to reconnect to server [{node.identifier}] retry {int(backoff)}'
+            self.bot.log.error(
+                f' {self.bot.user} - Failed to reconnect to server [{node.identifier}] retry {int(backoff)}'
                 f' sec. Erro: {error}'[:300])
             await asyncio.sleep(backoff)
             retries += 1
 
     @commands.Cog.listener("on_wavelink_node_ready")
     async def node_ready(self, node: wavelink.Node):
-        print("✅" + Fore.GREEN + f'{self.bot.user} - Music server: [{node.identifier} / v{node.version}] is ready to use!', Style.RESET_ALL)
+        self.bot.log.info(f'{self.bot.user} - Music server: [{node.identifier} / v{node.version}] is ready to use!')
         retries = 25
         while retries > 0:
 
@@ -6304,7 +6304,7 @@ class Music(commands.Cog):
         data['user_agent'] = self.bot.pool.current_useragent
         search = data.pop("search", True)
         node_website = data.pop('website', '')
-        region = data.pop('region', 'us_central')
+        region = data.pop('region', 'unknown')
         heartbeat = int(data.pop('heartbeat', 30))
         search_providers = data.pop("search_providers", [self.bot.pool.config["DEFAULT_SEARCH_PROVIDER"]] + [s for s in ("ytsearch", "scsearch") if s != self.bot.pool.config["DEFAULT_SEARCH_PROVIDER"]])
         retry_403 = data.pop('retry_403', False)
@@ -6323,12 +6323,12 @@ class Music(commands.Cog):
             retries = 1
             exception = None
 
-            print(Fore.GREEN + f"🔰 {self.bot.user} - The music server starts: {data['identifier']}", Style.RESET_ALL)
+            self.bot.log.info( f"🔰 {self.bot.user} - The music server starts: {data['identifier']}")
 
             while not self.bot.is_closed():
                 if retries >= max_retries:
-                    print(Fore.RED +
-                        f"❌ {self.bot.user} - All attempts to connect to server [{data['identifier']}] failed.", Style.RESET_ALL)
+                    self.bot.log.error(
+                        f" {self.bot.user} - All attempts to connect to server [{data['identifier']}] failed.")
                     return
                 else:
                     await asyncio.sleep(backoff)
@@ -6343,8 +6343,8 @@ class Music(commands.Cog):
                     except Exception as e:
                         exception = e
                         if data["identifier"] != "LOCAL":
-                            print(Fore.YELLOW + f'❌ {self.bot.user} - Failed to connect to server [{data["identifier"]}], '
-                                   f'retry [{retries}/{max_retries}] in {backoff} seconds.', Style.RESET_ALL)
+                            self.bot.log.warning(f' {self.bot.user} - Failed to connect to server [{data["identifier"]}], '
+                                   f'retry [{retries}/{max_retries}] in {backoff} seconds.')
                         backoff += 2
                         retries += 1
                         continue
@@ -6358,7 +6358,7 @@ class Music(commands.Cog):
                     elif r.status != 404:
                         raise Exception(f"{self.bot.user} - [{r.status}]: {await r.text()}"[:300])
             except Exception as e:
-                print(Fore.RED + f"❌ Failed to connect to the server {data['identifier']}", Style.RESET_ALL)
+                self.bot.log.error(f"Failed to connect to the server {data['identifier']}")
                 return
 
         data["identifier"] = data["identifier"].replace(" ", "_")

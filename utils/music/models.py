@@ -9,13 +9,10 @@ import aiohttp
 import traceback
 import uuid
 from collections import deque
-from itertools import cycle
 from time import time
 from typing import Optional, Union, TYPE_CHECKING, List
 from urllib import parse
 from urllib.parse import quote
-
-import logging
 
 import disnake
 
@@ -512,7 +509,6 @@ class LavalinkPlayer(wavelink.Player):
         if self.volume != 100:
             self.bot.loop.create_task(self.set_volume(self.volume))
 
-        self.hints: cycle = []
         self.current_hint: str = ""
         self.last_data: dict = {}
         self.check_skins()
@@ -959,7 +955,16 @@ class LavalinkPlayer(wavelink.Player):
             if event.code == 4014 and self.guild.me.voice:
                 pass
             else:
-                pass
+                print(
+                    ("-" * 15) +
+                    f"\nLỗi kênh thoại!"
+                    f"\nBot: {self.bot.user} [{self.bot.user.id}] | " + (
+                        "Online" if self.bot.is_ready() else "Offline") +
+                    f"\nGuild: {self.guild.name} [{self.guild.id}]"
+                    f"\nChannel: {vc.name} [{vc.id}]"
+                    f"\nServer: {self.node.identifier} | code: {event.code} | reason: {event.reason}\n" +
+                    ("-" * 15)
+                )
 
             if self.is_closing:
                 return
@@ -1058,7 +1063,7 @@ class LavalinkPlayer(wavelink.Player):
     def process_hint(self):
 
         if random.choice([x for x in range(self.hint_rate)]) == 0:
-            self.current_hint = next(self.hints)
+            self.current_hint = ''
         else:
             self.current_hint = ""
 
@@ -1130,7 +1135,7 @@ class LavalinkPlayer(wavelink.Player):
             )
 
         random.shuffle(hints)
-        self.hints = cycle(hints)
+        # self.hints = cycle(hints)
 
     def check_skins(self):
         if self.skin.startswith("> custom_skin: "):
@@ -1281,7 +1286,7 @@ class LavalinkPlayer(wavelink.Player):
                             result = await self.bot.loop.run_in_executor(None, lambda: self.bot.spotify.recommendations(seed_tracks=track_ids))
                             break
                         except Exception as e:
-                            self.set_command_log(emoji="⚠️", text=f"Không tải được bài hát đề xuất từ ​​Spotify, đang thử lại: {i+1} trên 3.")
+                            self.set_command_log(emoji="⚠️", text=f"Không tải được bài hát đề xuất từ Spotify, đang thử lại: {i+1} trên 3.")
                             self.update = True
                             traceback.print_exc()
                             exception = e
@@ -1727,7 +1732,7 @@ class LavalinkPlayer(wavelink.Player):
                         description=f"Nghe lại: {play_txt[:31]}"
                     ),
                     disnake.SelectOption(
-                        label="Bật tự động phát (AutoPilot)", emoji="🎶",
+                        label="Bật tự động phát (AutoPilot)", emoji="📼",
                         value=PlayerControls.autoplay,
                         description=f"Phát nhạc liên quan đến: {play_txt[:19]}"
                     ),
@@ -1744,7 +1749,7 @@ class LavalinkPlayer(wavelink.Player):
 
         controller_opts.append(
             disnake.SelectOption(
-                emoji="🛑", value=PlayerControls.stop, label="Tắt nhạc",
+                emoji="<:stop:1172811767525675028>", value=PlayerControls.stop, label="Tắt nhạc",
                 description=f"Tắt nhạc"
             ),
         )
@@ -2214,10 +2219,10 @@ class LavalinkPlayer(wavelink.Player):
                             await asyncio.sleep(0.5)
                             
                         except asyncio.CancelledError:
-                            # traceback.print_exc()
+                            pass
                             return
                         except:
-                            # traceback.print_exc()
+                            pass
                             self.text_channel = self.bot.get_channel(self.text_channel.id)
 
                             if not self.text_channel:
@@ -2262,7 +2267,6 @@ class LavalinkPlayer(wavelink.Player):
                         return
                     except Exception as e:
                         self.updating = False
-                        # traceback.print_exc()
                         if self.static or self.has_thread:
                             self.set_command_log(
                                 f"{(interaction.author.mention + ' ') if interaction else ''}Có lỗi trong tương tác: {repr(e)}",
@@ -2393,7 +2397,6 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     await send_idle_embed(inter or self.message, self.command_log, bot=self.bot)
                 except:
-                    # traceback.print_exc()
                     pass
 
                 if self.purge_mode == SongRequestPurgeMode.on_player_stop:
@@ -2450,7 +2453,6 @@ class LavalinkPlayer(wavelink.Player):
 
                     elif inter:
                         try:
-
                             await inter.response.edit_message(
                                 content=None,
                                 embed=disnake.Embed(
@@ -2605,7 +2607,7 @@ class LavalinkPlayer(wavelink.Player):
             track.info["length"] = selected_track.duration
 
         except Exception as e:
-            # traceback.print_exc()
+            traceback.print_exc()
             embed = disnake.Embed(
                 description=f"**Không lấy được thông tin PartialTrack:\n[{track.title}]({track.uri or track.search_uri})** ```py\n{repr(e)}```\n"
                              f"**Máy chủ âm nhạc:** `{self.node.identifier}`",
@@ -2649,7 +2651,6 @@ class LavalinkPlayer(wavelink.Player):
                 await self.change_node(node.identifier)
                 self.locked = False
             except:
-                # traceback.print_exc()
                 await asyncio.sleep(5)
                 continue
 
@@ -2717,7 +2718,6 @@ class LavalinkPlayer(wavelink.Player):
                 try:
                     users = voice_channel.voice_states
                 except AttributeError:
-                    # TODO: Investigar possível bug ao mover o bot de canal pelo discord.
                     return
 
             thumb = self.bot.user.display_avatar.replace(
@@ -2924,9 +2924,12 @@ class LavalinkPlayer(wavelink.Player):
 
         await super().destroy(force=force, guild=self.guild)
         try: 
-            print(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player destroy at {inter.guild.name}")
+            self.bot.log.info(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player destroy at {inter.guild.name}")
         except AttributeError:
-            print(f"Player destroy at {inter.guild.name}")
+            try:
+                self.bot.log.info(f"Player destroy at {inter.guild.name}")
+            except Exception:
+                self.bot.log.info("Player destroy at Unknown guild [?]")
 
         self.bot.dispatch("player_destroy", player=self)
 

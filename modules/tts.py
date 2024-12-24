@@ -161,7 +161,7 @@ class TTS(commands.Cog):
                 await ctx.send(f"Đã có lỗi xảy ra, vui lòng báo cho chủ sở hữu bot!")
                 print("Không có ffmpeg hoặc hệ thống không hỗ trợ ffmpeg, vui lòng kiểm tra lại")
             return await self.bot.close()
-        except Exception: traceback.print_exc(); await ctx.channel.send(f"Cant play TS")
+        except Exception: traceback.print_exc(); await ctx.channel.send(f"Không thể phát, đã có một sự cố nào đó xảy ra")
 
     @commands.command(description=f"{desc_prefix}Disconnect", aliases=["stoptts"])
     async def tts_stop(self, ctx: disnake.ApplicationCommandInteraction):
@@ -176,7 +176,7 @@ class TTS(commands.Cog):
             except FileNotFoundError:
                 pass
             except Exception as e:
-                await ctx.channel.send(f"Err.")
+                await ctx.channel.send(f"Đã xảy ra lỗi")
                 logging.error(f"Error {e}")
 
             await vc.disconnect()

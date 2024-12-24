@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-print("INIT CLIENT.........")
+print("Booting up...")
 from utils.client import BotPool
+import utils.logger
 
 pool = BotPool()
 
