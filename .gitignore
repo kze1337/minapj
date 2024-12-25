@@ -198,3 +198,4 @@ plugins
 .idea
 .spotipy_cache
 openascode.sh
+langDB.sql
