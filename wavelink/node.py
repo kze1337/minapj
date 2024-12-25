@@ -356,7 +356,7 @@ class Node:
                 case 204:
                     return None
                 case 404:
-                    __log__.warning(f"NODE | Bruh, {await r.json['message']} happened")
+                    __log__.warning(f"NODE | Bruh, {(await r.json())['message']} happened")
                     return None
                 case 400:
                     return None
