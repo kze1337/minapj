@@ -1749,7 +1749,7 @@ class LavalinkPlayer(wavelink.Player):
 
         controller_opts.append(
             disnake.SelectOption(
-                emoji="<:stop:1172811767525675028>", value=PlayerControls.stop, label="Tắt nhạc",
+                emoji="<:stop:1140221258575925358>", value=PlayerControls.stop, label="Tắt nhạc",
                 description=f"Tắt nhạc"
             ),
         )
@@ -1780,7 +1780,7 @@ class LavalinkPlayer(wavelink.Player):
         )
 
         if not self.keep_connected:
-            embed.description += "\n\nNota:** `Người chơi sẽ tự động tắt` " \
+            embed.description += "\n\nLưu ý:** `Người chơi sẽ tự động tắt` " \
                         f"<t:{int((disnake.utils.utcnow() + datetime.timedelta(seconds=self.bot.config['IDLE_TIMEOUT'])).timestamp())}:R> " \
                         f"`nếu không có hành động nào được thực hiện..`"
 
@@ -2153,7 +2153,7 @@ class LavalinkPlayer(wavelink.Player):
                     ),
                 ]
 
-                if self.current.ytid and self.node.lyric_support:
+                if self.current.ytid and self.node.support_lyric:
                     data["components"][5].options.append(
                         disnake.SelectOption(
                             label="Visualizar letras", emoji="📃",
@@ -2926,10 +2926,7 @@ class LavalinkPlayer(wavelink.Player):
         try: 
             self.bot.log.info(f"{inter.bot.user.name}#{inter.bot.user.discriminator} - Player destroy at {inter.guild.name}")
         except AttributeError:
-            try:
-                self.bot.log.info(f"Player destroy at {inter.guild.name}")
-            except Exception:
-                self.bot.log.info("Player destroy at Unknown guild [?]")
+                self.bot.log.info(f"Player destroy at {self.guild.name}")
 
         self.bot.dispatch("player_destroy", player=self)
 

@@ -5263,7 +5263,7 @@ class Music(commands.Cog):
                         await interaction.send("Hiện tại chỉ có âm nhạc YouTube được hỗ trợ..", ephemeral=True)
                         return
 
-                    not_found_msg = "Không có lời bài hát cho âm nhạc hiện tại..."
+                    not_found_msg = "Không có lời bài hát cho bài hát hiện tại..."
 
                     await interaction.response.defer(ephemeral=True, with_message=True)
 
@@ -5286,12 +5286,14 @@ class Music(commands.Cog):
                         await interaction.edit_original_message(f"**{not_found_msg}**")
                         return
 
-                    player.current.info["extra"]["lyrics"]["track"]["albumArt"] = player.current.info["extra"]["lyrics"]["track"]["albumArt"][:-1]
-
-                    try:
-                        lyrics_string = "\n".join([d['line'] for d in  player.current.info["extra"]["lyrics"]['lines']])
-                    except KeyError:
-                        lyrics_string = player.current.info["extra"]["lyrics"]["text"]
+                    if player.current.info["extra"]["lyrics"] is not None:
+                        if player.current.info["extra"]["lyrics"]["type"] == "text":
+                            lyrics_string =  player.current.info["extra"]["lyrics"]["text"]
+                        elif player.current.info["extra"]["lyrics"]["type"] == "timed":
+                            lyric = []
+                            for lines in player.current.info["extra"]["lyrics"]['lines']:
+                                lyric.append(f"[{time_format(lines['range']['start'])}] {lines['line'].replace('♪',' 🎵 🎶 🎵 🎶 🎵 🎶 ')}")
+                            lyrics_string = "\n".join(lyric)
 
                     try:
                         await self.player_interaction_concurrency.release(interaction)
@@ -5302,7 +5304,7 @@ class Music(commands.Cog):
                         embed=disnake.Embed(
                             description=f"### Lời bài hát: [{player.current.title}]({player.current.uri})\n{lyrics_string}",
                             color=self.bot.get_color(player.guild.me)
-                        )
+                        ).set_thumbnail(player.current.thumb)
                     )
                     return
 

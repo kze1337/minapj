@@ -59,13 +59,13 @@ debugHandler.setLevel(DEBUG)
 debugHandler.addFilter(SpectificLevelFilter(DEBUG))
 debugHandler.setFormatter(Formatter(DEBUG_FORMAT, datefmt=DATEFMT))
 
-fileHandler = FileHandler(".logs/log.log", mode="a", encoding="utf-8")
+fileHandler = FileHandler(".logs/SessionLog.log", mode="w", encoding="utf-8")
 fileHandler.setLevel(INFO)
 fileHandler.setFormatter(Formatter("%(asctime)s %(name)s:%(lineno)d [%(levelname)s] - %(message)s", datefmt=DATEFMT))
 
 ## Configure
 basicConfig(
-    level=INFO,
+    level=DEBUG,
     handlers=[infoHandler, warningHandler, errorHandler, fileHandler, debugHandler]
 )
 

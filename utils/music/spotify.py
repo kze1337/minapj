@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import traceback
+from logging import getLogger
 from typing import Optional, TYPE_CHECKING
 from urllib.parse import quote
 
@@ -20,6 +21,7 @@ spotify_regex = re.compile("https://open.spotify.com?.+(album|playlist|artist|tr
 spotify_link_regex = re.compile(r"(?i)https?:\/\/spotify\.link\/?(?P<id>[a-zA-Z0-9]+)")
 spotify_regex_w_user = re.compile("https://open.spotify.com?.+(album|playlist|artist|track|user)/([a-zA-Z0-9]+)")
 
+_log = getLogger(__name__)
 
 def query_spotify_track(func, url_id: str):
     return func(url_id)
@@ -196,18 +198,18 @@ async def process_spotify(bot: BotCore, requester: int, query: str):
 
 def spotify_client(config: dict) -> Optional[spotipy.Spotify]:
     if not config['SPOTIFY_CLIENT_ID']:
-        print(
-            f"[BỎ QUA] - Hỗ trợ Spotify: SPOTIFY_CLIENT_ID chưa được định cấu hình trong ENV máy chủ (hoặc tệp .env)."
-            f"\n{'-' * 30}")
+        _log.warning(
+            f"Spotify: SPOTIFY_CLIENT_ID not configured in the ENV (or .env file).")
         return
 
     if not config['SPOTIFY_CLIENT_SECRET']:
-        print(
-            f"[BỎ QUA] - Hỗ trợ Spotify: SPOTIFY_CLIENT_SECRET không được định cấu hình trong máy chủ ENV "
-             f" (hoặc trong tệp .env).\n{'-' * 30}")
+        _log.warning(
+            f"Spotify: SPOTIFY_CLIENT_SECRET not configured in the ENV "
+             f" (or in .env file).")
         return
 
     try:
+        _log.info("Setting Up Spotify Client...")
         return spotipy.Spotify(
             auth_manager=SpotifyClientCredentials(
                 client_id=config['SPOTIFY_CLIENT_ID'],
@@ -216,11 +218,11 @@ def spotify_client(config: dict) -> Optional[spotipy.Spotify]:
         )
 
     except KeyError as e:
-        print(
-            f"APIKEY của Spotify không được cấu hình đúng trong tệp máy chủ (hoặc .Env), "
-            f"Kiểm tra và thử lại nếu bạn muốn hỗ trợ các bài hát Spotify (Lỗi: {repr(e)}).\n{'-' * 30}")
+        _log.warning(
+            f"Spotify APIKEY is not configured properly in the ENV (or .env), "
+            f"Check and try again if you want to support the songs from Spotify (Err: {repr(e)})).")
         return
 
     except Exception as e:
-        print(f"Đã xảy ra lỗi trong cấu hình Spotify:\n{traceback.format_exc()}).\n{'-' * 30}")
+        _log.error(f"An error occur while setting up Spotify:\n{traceback.format_exc()}).")
         return

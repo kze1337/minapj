@@ -134,14 +134,14 @@ class BotPool:
                         return
 
                     self.killing_state = "ratelimit"
-                    print("Ứng dụng đã bị Ratelimit từ Discord!")
+                    self.log.warning("Ứng dụng đã bị Ratelimit từ Discord!")
                     await asyncio.sleep(10)
                     raise e
 
                 if self.killing_state is True:
                     return
 
-                print(
+                self.log.warning(
                     "Application got discord ratelimit!\n"
                      "Finishing/Restarting the process in 5 seconds..."
                 )
@@ -216,16 +216,6 @@ class BotPool:
 
         LAVALINK_SERVERS = {}
 
-        if self.config["AUTO_DOWNLOAD_LAVALINK_SERVERLIST"]:
-            ini_file = "auto_lavalink.ini"
-            print(f"Downloading list of lavalink servers (file: {ini_file})")
-            r = requests.get(self.config["LAVALINK_SERVER_LIST"], allow_redirects=True)
-            with open("auto_lavalink.ini", 'wb') as f:
-                f.write(r.content)
-            r.close()
-        else:
-            ini_file = "lavalink.ini"
-
         for key, value in self.config.items():
 
             if key.lower().startswith("lavalink_node_"):
@@ -236,7 +226,7 @@ class BotPool:
 
         config = ConfigParser()
         try:
-            config.read(ini_file)
+            config.read("lavalink.ini")
         except FileNotFoundError:
             pass
         except Exception:
@@ -272,9 +262,9 @@ class BotPool:
 
         if mongo_key:
             self.mongo_database = MongoDatabase(mongo_key, timeout=self.config["MONGO_TIMEOUT"])
-            self.log.info("🔰 Database in use: MongoDB")
+            self.log.info("🔰 Database: MongoDB")
         else:
-            self.log.info("🔰 Database in use: TinyMongo")
+            self.log.info("🔰 Database: TinyMongo")
 
         self.local_database = LocalDatabase()
 
@@ -479,39 +469,6 @@ class BotPool:
                         else:
 
                             self._command_sync_flags = commands.CommandSyncFlags.none()
-
-                            if self.config["INTERACTION_BOTS"] and self.config["ADD_REGISTER_COMMAND"]:
-
-                                @bot.slash_command(
-                                    name=disnake.Localized("register_commands",data={disnake.Locale.pt_BR: "registrar_comandos"}),
-                                    description="Sử dụng lệnh này nếu các lệnh gạch chéo (/) khác của tôi không khả dụng..."
-                                )
-                                async def register_commands(
-                                        inter: disnake.AppCmdInter,
-                                ):
-                                    interaction_invites = ""
-
-                                    for b in self.bots:
-
-                                        if not b.interaction_id:
-                                            continue
-
-                                        interaction_invites += f"[`{disnake.utils.escape_markdown(str(b.user.name))}`]({disnake.utils.oauth_url(b.user.id, scopes=['applications.commands'])}) "
-
-                                    embed = disnake.Embed(
-                                        description="**Chú ý!** Tất cả các lệnh gạch chéo lên (/) của tôi đều hoạt động thông qua ứng dụng "
-                                                     f"với một trong những tên bên dưới:**\n{interaction_invites}\n\n"
-                                                     "**Nếu các lệnh ứng dụng trên không được hiển thị khi gõ dấu gạch chéo lên (/), "
-                                                     "click vào tên bên trên để tích hợp lệnh gạch chéo vào "
-                                                     "máy chủ.",
-                                        color=bot.get_color()
-                                    )
-
-                                    if not inter.author.guild_permissions.manage_guild:
-                                        embed.description += "\n\n**Lưu ý:** Bạn sẽ cần có quyền **Quản lý" \
-                                                              "Server** để tích hợp các lệnh vào máy chủ hiện tại."
-
-                                    await inter.send(embed=embed, ephemeral=True)
 
                             if bot.config["AUTO_SYNC_COMMANDS"]:
                                 await bot.sync_app_commands(force=True)
@@ -1060,7 +1017,7 @@ class BotCore(commands.AutoShardedBot):
                     guilds.add(guild)
 
             warn_msg =f"Attention: Bot [{self.user}] (ID: {self.user.id}) has been configured in the developer portal " \
-                   "like public bot\n"
+                   "like public bot"
             self.log.warning(warn_msg)
         else:
             self.log.info(f"{self.user} - [{self.user.id}] is configured as a private bot.")

@@ -52,28 +52,30 @@ class DefaultProgressbarSkin:
 
         vc_txt = ""
         src_name = fix_characters(player.current.info['sourceName'], limit=16)
-        src_emoji = ""
-        if src_name == "spotify":
-            s_name = "Spotify"
-            src_emoji = "<:spo:1197427989630156843>"
-        elif src_name == "youtube":
-            s_name = "YouTube"
-            src_emoji = "<:Youtube:1197428387917082735>"
-        elif src_name == "soundcloud":
-            s_name = "SoundCloud"
-            src_emoji = "<:soundcloud:1197427982499856435>"
-        elif src_name == "dezzer":
-            s_name = "Dezzer"
-            src_emoji = "<:deezer:1197427994533314600>"
-        elif src_name == "twitch":
-            s_name = "Twitch"
-            src_emoji = "<:Twitch:1197427999981703238>"
-        elif src_name == "applemusic":
-            s_name = "Apple Music"
-            src_emoji = "<:applemusic:1232560350449242123>"
-        else:
-            s_name = "Unknown"
-            src_emoji = "<:LogoModSystem:1155781711024635934>"
+
+        match src_name:
+            case "spotify":
+                s_name = "Spotify"
+                src_emoji = "<:spo:1197427989630156843>"
+            case "youtube":
+                s_name = "YouTube"
+                src_emoji = "<:Youtube:1197428387917082735>"
+            case "soundcloud":
+                s_name = "SoundCloud"
+                src_emoji = "<:soundcloud:1197427982499856435>"
+            case "dezzer":
+                s_name = "Dezzer"
+                src_emoji = "<:deezer:1197427994533314600>"
+            case "twitch":
+                s_name = "Twitch"
+                src_emoji = "<:Twitch:1197427999981703238>"
+            case "applemusic":
+                s_name = "Apple Music"
+                src_emoji = "<:applemusic:1232560350449242123>"
+            case _:
+                s_name = "Unknown"
+                src_emoji = "<:LogoModSystem:1155781711024635934>"
+
 
 
 

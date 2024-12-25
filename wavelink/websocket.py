@@ -33,6 +33,7 @@ from .events import *
 from .stats import Stats
 
 __log__ = logging.getLogger(__name__)
+__log__.disabled=True
 
 def remove_suffix(input_string, suffix):
     if suffix and input_string.endswith(suffix):

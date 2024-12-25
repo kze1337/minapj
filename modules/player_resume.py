@@ -277,7 +277,7 @@ class PlayerSession(commands.Cog):
             if self.bot.config["PLAYER_SESSIONS_MONGODB"] and self.bot.config["MONGO"]:
                 for d in local_sessions:
                     data_list[d["_id"]] = d
-                    print(f"{self.bot.user} - Đang di chuyển dữ liệu phiên máy chủ: {d['_id']} | DB cục bộ -> Mongo")
+                    self.bot.log.info(f"{self.bot.user} - Moving server session data: {d['_id']} | LocalDB -> Mongo")
                     await self.save_session_mongo(d["_id"], d)
                     self.delete_data_local(d["_id"])
                 for d in mongo_sessions:
@@ -286,7 +286,7 @@ class PlayerSession(commands.Cog):
             else:
                 for d in mongo_sessions:
                     data_list[d["_id"]] = d
-                    print(f"{self.bot.user} - Đang di chuyển dữ liệu phiên máy chủ: {d['_id']} | Mongodb Local")
+                    self.bot.log.info(f"{self.bot.user} - Moving server session data: {d['_id']} | Mongodb Local")
                     await self.save_session_local(d["_id"], d)
                     if self.bot.config["MONGO"]:
                         await self.delete_data_mongo(d["_id"])
@@ -307,7 +307,7 @@ class PlayerSession(commands.Cog):
                     await asyncio.sleep(1)
 
         except Exception:
-            print(f"{self.bot.user} - Không tiếp tục tiếp tục người chơi {data['_id']}:\n{traceback.format_exc()}")
+            self.bot.log.warning(f"{self.bot.user} - Cannot resume playback {data['_id']}:\n{traceback.format_exc()}")
 
         self.bot.player_resumed = True
 
@@ -320,11 +320,11 @@ class PlayerSession(commands.Cog):
             guild = self.bot.get_guild(data["_id"])
 
             if self.bot.music.players.get(int(data["_id"])):
-                    print(f"{self.bot.user} - Bỏ qua người chơi hiện có: {data['_id']}")
+                    self.bot.log.warning(f"{self.bot.user} - Ignore existing players: {data['_id']}")
                     return
 
             if not guild:
-                    print(f"{self.bot.user} - Người chơi bị bỏ qua: {data['_id']} | Máy chủ không tồn tại...")
+                    self.bot.log.warning(f"{self.bot.user} - The player is ignored: {data['_id']} | Server does not exist...")
                     if (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
                         await self.delete_data(data["_id"])
                     return
@@ -354,7 +354,7 @@ class PlayerSession(commands.Cog):
                 try:
                         can_send_message(text_channel, self.bot.user)
                 except Exception:
-                        print(f"{self.bot.user} - Controller Ignored (lack of permission) [Channel: {text_channel.name} | ID: {text_channel.id}] - [ {guild.name} - {guild.id} ]")
+                        self.bot.log.warning(f"{self.bot.user} - Controller Ignored (lack of permission) [Channel: {text_channel.name} | ID: {text_channel.id}] - [ {guild.name} - {guild.id} ]")
                         text_channel = None
                 else:
                     if data["message_id"]:
@@ -385,11 +385,11 @@ class PlayerSession(commands.Cog):
                         message_without_thread = msg
 
                 except Exception as e:
-                        print(f"{self.bot.user} - Failed to get message: {repr(e)}\n"
+                        self.bot.log.error(f"{self.bot.user} - Failed to get message: {repr(e)}\n"
                               f"channel_id: {text_channel.id} | message_id {data['message']}")
 
             if not voice_channel:
-                    print(f"{self.bot.user} -Người chơi bị bỏ qua: {guild.name} [{guild.id}]\nKênh thoại không tồn tại...")
+                    self.bot.log.warning(f"{self.bot.user} - The player is ignored: {guild.name} [{guild.id}]\nVoice channel does not exist...")
                     try:
                         msg = "Trình phát bị chấm dứt do kênh thoại không tồn tại hoặc đã bị xóa."
                         if not data["skin_static"]:
@@ -405,7 +405,7 @@ class PlayerSession(commands.Cog):
             try:
                     can_connect(voice_channel, guild=guild, bot=self.bot)
             except Exception as e:
-                    print(f"{self.bot.user} - Player Ignorado: {guild.name} [{guild.id}]\n{repr(e)}")
+                    self.bot.log.warning(f"{self.bot.user} - Player Ignored: {guild.name} [{guild.id}]\n{repr(e)}")
                     if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
                         await self.delete_data(guild.id)
                     try:
@@ -464,7 +464,7 @@ class PlayerSession(commands.Cog):
                     session_resuming=True,
                 )
             except Exception:
-                print(f"{self.bot.user} - Thất bại khi khởi tạo trình phát ở: {guild.name} [{guild.id}]\n{traceback.format_exc()}")
+                self.bot.log.error(f"{self.bot.user} - Failed to initialize player at: {guild.name} [{guild.id}]\n{traceback.format_exc()}")
                 if not data.get("autoplay") and (disnake.utils.utcnow() - data.get("time", disnake.utils.utcnow())).total_seconds() > 172800:
                     await self.delete_data(guild.id)
                 return
@@ -510,7 +510,7 @@ class PlayerSession(commands.Cog):
                 break
 
             if not wait_counter:
-                print(f"{self.bot.user} - {guild.name}: Player ignored due to delay in connecting to the voice channel.")
+                self.bot.log.warning(f"{self.bot.user} - {guild.name}: Player ignored due to delay in connecting to the voice channel.")
                 return
 
             if isinstance(voice_channel, disnake.StageChannel) and \
@@ -521,7 +521,7 @@ class PlayerSession(commands.Cog):
                 try:
                     await guild.me.edit(suppress=False)
                 except Exception as e:
-                    print(f"{self.bot.user} - Failed to speak on the server stage {guild.name}. Erro: {repr(e)}")
+                    self.bot.log.error(f"{self.bot.user} - Failed to speak on the server stage {guild.name}. Erro: {repr(e)}")
                     return
 
             tracks, playlists = self.process_track_cls(data["queue"])
@@ -584,7 +584,7 @@ class PlayerSession(commands.Cog):
                     await player.process_next(start_position=position)
                     player._session_resuming = False
             except Exception:
-                print(f"{self.bot.user} - Không thể phát nhạc khi tiếp tục trình phát từ máy chủ {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
+                self.bot.log.error(f"{self.bot.user} - Không thể phát nhạc khi tiếp tục trình phát từ máy chủ {guild.name} [{guild.id}]:\n{traceback.format_exc()}")
                 return
 
             try:
@@ -594,10 +594,10 @@ class PlayerSession(commands.Cog):
 
             player.members_timeout_task = self.bot.loop.create_task(player.members_timeout(check=check, idle_timeout=10))
 
-            print(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}] - Server: [{player.node.identifier}]")
+            self.bot.log.info(f"{self.bot.user} - Player Resumed: {guild.name} [{guild.id}] - Server: [{player.node.identifier}]")
 
         except Exception:
-            print(f"{self.bot.user} - Critical failure when resuming players:\n{traceback.format_exc()}")
+            self.bot.log.error(f"{self.bot.user} - Critical failure when resuming players:\n{traceback.format_exc()}")
 
     async def get_player_sessions_mongo(self):
 
