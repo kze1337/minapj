@@ -348,6 +348,7 @@ class Node:
         return self.support_lyric
 
     async def makereq(self, path: str):
+        __log__.info(f"NODE | Trying to make a request to:: {path}")
         async with self.session.get(f"{self.rest_uri}/{path}", headers=self.headers) as r:
             match r.status:
                 case 200:
@@ -355,6 +356,7 @@ class Node:
                 case 204:
                     return None
                 case 404:
+                    __log__.warning(f"NODE | Bruh, {await r.json['message']} happened")
                     return None
                 case 400:
                     return None
@@ -367,7 +369,7 @@ class Node:
             return
         if not self.lyric_support:
             return
-        __log__.debug(f"Fetching lyrics for ytID: {video_id}")
+        __log__.info(f"NODE | Fetching lyrics for ytID:: {video_id}")
         response = await self.makereq(f"v4/lyrics/{video_id}")
         return response
 

@@ -699,7 +699,6 @@ class BotCore(commands.AutoShardedBot):
         )
 
     async def close(self) -> None:
-        await super().close()
         self.log.info("Cleaning up...")
         if os.path.exists("data_tts"):
             for item in os.listdir("data_tts"):
@@ -708,6 +707,7 @@ class BotCore(commands.AutoShardedBot):
                     shutil.rmtree(item_path)
                 else:
                     os.remove(item_path)
+        await super().close()
 
     def check_skin(self, skin: str):
 

@@ -65,7 +65,7 @@ fileHandler.setFormatter(Formatter("%(asctime)s %(name)s:%(lineno)d [%(levelname
 
 ## Configure
 basicConfig(
-    level=DEBUG,
+    level=INFO,
     handlers=[infoHandler, warningHandler, errorHandler, fileHandler, debugHandler]
 )
 
