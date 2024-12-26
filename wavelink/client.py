@@ -403,7 +403,7 @@ class Client:
         node.available = True
         self.nodes[identifier] = node
 
-        __log__.info(f'CLIENT | New node initiated:: {node.__repr__()} ')
+        __log__.debug(f'CLIENT | New node initiated:: {node.__repr__()} ')
         return node
 
     async def destroy_node(self, *, identifier: str) -> None:

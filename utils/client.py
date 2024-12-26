@@ -1005,24 +1005,6 @@ class BotCore(commands.AutoShardedBot):
             self.owner = self.appinfo.owner
             owners = [self.appinfo.owner]
 
-        if self.appinfo.bot_public and not self.config.get("SILENT_PUBLICBOT_WARNING"):
-
-            def check_member(u: disnake.User, g: disnake.Guild):
-                member = g.get_member(u.id)
-                return member and member.guild_permissions.manage_guild
-
-            guilds = set()
-            for guild in self.guilds:
-                if not [dev for dev in owners if check_member(dev, guild)]:
-                    guilds.add(guild)
-
-            warn_msg =f"Attention: Bot [{self.user}] (ID: {self.user.id}) has been configured in the developer portal " \
-                   "like public bot"
-            self.log.warning(warn_msg)
-        else:
-            self.log.info(f"{self.user} - [{self.user.id}] is configured as a private bot.")
-
-
     async def on_application_command_autocomplete(self, inter: disnake.ApplicationCommandInteraction):
 
         if not self.bot_ready:

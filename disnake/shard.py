@@ -49,7 +49,7 @@ __all__ = (
 )
 
 _log = logging.getLogger(__name__)
-
+_log.disabled = True
 
 class EventType:
     close = 0

@@ -955,15 +955,13 @@ class LavalinkPlayer(wavelink.Player):
             if event.code == 4014 and self.guild.me.voice:
                 pass
             else:
-                print(
-                    ("-" * 15) +
+                self.bot.log.warning(
                     f"\nLỗi kênh thoại!"
                     f"\nBot: {self.bot.user} [{self.bot.user.id}] | " + (
                         "Online" if self.bot.is_ready() else "Offline") +
                     f"\nGuild: {self.guild.name} [{self.guild.id}]"
                     f"\nChannel: {vc.name} [{vc.id}]"
-                    f"\nServer: {self.node.identifier} | code: {event.code} | reason: {event.reason}\n" +
-                    ("-" * 15)
+                    f"\nServer: {self.node.identifier} | code: {event.code} | reason: {event.reason}\n"
                 )
 
             if self.is_closing:
