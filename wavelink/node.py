@@ -356,7 +356,10 @@ class Node:
                 case 204:
                     return None
                 case 404:
-                    __log__.warning(f"NODE | Bruh, {(await r.json())['message']} happened")
+                    msg = (await r.json())['message']
+                    __log__.warning(f"NODE | Bruh, {msg} happened")
+                    if str(msg).startswith("No endpoint GET"):
+                        self.support_lyric = False
                     return None
                 case 400:
                     return None
