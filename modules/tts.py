@@ -160,7 +160,7 @@ class TTS(commands.Cog):
             if "ffmpeg.exe was not found." or "ffmpeg was not found." in str(e):
                 await ctx.send(f"Đã có lỗi xảy ra, vui lòng báo cho chủ sở hữu bot!")
                 print("Không có ffmpeg hoặc hệ thống không hỗ trợ ffmpeg, vui lòng kiểm tra lại")
-            return await self.bot.close()
+            return
         except Exception: traceback.print_exc(); await ctx.channel.send(f"Không thể phát, đã có một sự cố nào đó xảy ra")
 
     @commands.command(description=f"{desc_prefix}Disconnect", aliases=["stoptts"])
