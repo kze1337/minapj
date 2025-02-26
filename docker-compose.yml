@@ -1,0 +1,20 @@
+services:
+  lavalink:
+    build: lavalink
+    container_name: lavalink
+    restart: unless-stopped
+    env_file:
+      - lavalink.env
+  
+  ayakapj:
+    build: .
+    container_name: ayakapj
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - lavalink
+
+networks:
+  default:
+    enable_ipv6: true
