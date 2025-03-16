@@ -124,7 +124,8 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+*.env
+!*.example.env
 .venv
 env/
 venv/
@@ -179,7 +180,6 @@ databases/users.sqlite
 .app_commands_sync_data
 .db_cache
 .databases
-databases/users.sqlite
 =1.17.0-0
 application.yml
 Lavalink.jar

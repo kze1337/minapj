@@ -1,0 +1,25 @@
+services:
+  lavalink:
+    build: lavalink
+    restart: unless-stopped
+    env_file:
+      - lavalink.env
+    healthcheck:
+      test: ["CMD", "curl", "--head", "http://localhost:2333"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  
+  ayakapj:
+    build: .
+    container_name: ayakapj
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      lavalink:
+        condition: service_healthy
+
+networks:
+  default:
+    enable_ipv6: true
