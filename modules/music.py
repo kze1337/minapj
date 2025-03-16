@@ -4770,8 +4770,12 @@ class Music(commands.Cog):
                 if not channel:
                     raise GenericError("Không có bot nào vào thời điểm này.")
 
-                if not author.voice:
+                try:
+                    if not author.voice:
+                        raise GenericError("Bạn phải tham gia một kênh thoại để sử dụng nút này....")
+                except AttributeError:
                     raise GenericError("Bạn phải tham gia một kênh thoại để sử dụng nút này....")
+                    pass
 
                 try:
                     node = player.node

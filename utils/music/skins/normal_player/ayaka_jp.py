@@ -30,13 +30,22 @@ class DefaultProgressbarSkin:
             "content": None,
             "embeds": []
         }
+        trans = {
+            "spotify": "スポティファイ",
+            "youTube": "ユーチューブ",
+            "soundcloud": "サウンドクラウド",
+            "dezzer": "ディーザー",
+            "twitch": "ツイッチ",
+            "applemusic": "アップルミュージック",
+            "Unknown": "不明"
+        }
 
         embed = disnake.Embed(color=player.bot.get_color(player.guild.me))
         embed_queue = None
 
         if not player.paused:
             embed.set_author(
-                name=f"{player.current.info['sourceName']} から音楽を再生しています:",
+                name=f"{trans.get(player.current.info['sourceName'], '不明')} から音楽を再生しています:",
                 icon_url=music_source_image(player.current.info["sourceName"])
             )
         else:
@@ -77,8 +86,6 @@ class DefaultProgressbarSkin:
             case _:
                 s_name = "分からない"
                 src_emoji = "<:LogoModSystem:1155781711024635934>"
-
-
 
 
         txt = f"[`{player.current.single_title}`]({player.current.uri})\n\n" \
@@ -162,7 +169,7 @@ class DefaultProgressbarSkin:
         if qlenght and player.mini_queue_enabled:
 
             queue_txt = "\n".join(
-                f"`{(n + 1):02}) [{time_format(t.duration) if not t.is_stream else '🔴 Livestream'}]` [`{fix_characters(t.title, 38)}`]({t.uri})"
+                f"`{(n + 1):02}) [{time_format(t.duration) if not t.is_stream else '🔴 ライブストリーム'}]` [`{fix_characters(t.title, 38)}`]({t.uri})"
                 for n, t in (enumerate(itertools.islice(player.queue, 3)))
             )
 
@@ -186,7 +193,7 @@ class DefaultProgressbarSkin:
         embed.set_image(url=player.current.thumb if player.is_paused == False else "https://i.ibb.co/wKwpJZQ/ayakapfp-Banner2.gif")
         embed.set_thumbnail(url=player.current.thumb)
         embed.set_footer(
-            text=f"チサディン音楽システム || {time_format(player.position)} / {time_format(player.current.duration)}" if not player.current.is_stream else "チサディン音楽システム || 現在ストリーミング中" if not player.paused else "Chisadin 音楽システム || 一時停止",
+            text=f"Chisadin Music Service || {time_format(player.position)} / {time_format(player.current.duration)}" if not player.current.is_stream else "チサディン音楽システム || 現在ストリーミング中" if not player.paused else "Chisadin 音楽システム || 一時停止",
             icon_url="https://i.ibb.co/YtHsQWH/1125034330088034334.webp",
         )
 

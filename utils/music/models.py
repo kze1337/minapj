@@ -1071,7 +1071,6 @@ class LavalinkPlayer(wavelink.Player):
             (self.bot.player_static_skins[self.skin_static]
              if self.static else self.bot.player_skins[self.skin]).setup_features(self)
         except:
-            # linha temporária para resolver possíveis problemas com skins custom criadas por usuarios antes desse commit.
             self.auto_update = 0
             self.controller_mode = True
 

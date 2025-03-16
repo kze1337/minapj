@@ -5,7 +5,7 @@ from typing import Union
 from utils.others import CustomContext
 from utils.client import BotCore
 
-def convert_tm(x: str) -> int:
+def convert_tm(x: str) -> dict:
     _input = x.lower().strip()
     valid = False
     _time = [0, 0, 0, 0] # [day, hours, minutes, seconds]
@@ -162,7 +162,7 @@ class Moderator(commands.Cog):
             reason = "Không có lý do"
         
         tm = convert_tm(time)
-        if tm["valid"] == False:
+        if not tm["valid"]:
             return
         try:
             await member.timeout(duration=tm["tm"], reason=reason)
