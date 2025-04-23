@@ -170,7 +170,7 @@ class Node:
 
         __log__.debug(f'NODE | {self.identifier} connected:: {self.__repr__()}')
 
-    async def update_player(self, guild_id: int, data: dict, replace: bool = False):
+    async def update_player(self, guild_id: int, data: dict, oauth_token: str = None, replace: bool = False):
 
         if not self.session_id:
             raise MissingSessionID(self)
@@ -178,6 +178,9 @@ class Node:
         no_replace: bool = not replace
 
         uri: str = f"{self.rest_uri}/v4/sessions/{self.session_id}/players/{guild_id}?noReplace={no_replace}"
+
+        if oauth_token:
+            data.setdefault("userData", {})["oauth-token"] = oauth_token
 
         retries = 3
 

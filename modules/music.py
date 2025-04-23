@@ -2,6 +2,7 @@
 import asyncio
 import datetime
 import json
+import logging
 import os.path
 import pickle
 import re
@@ -336,7 +337,7 @@ class Music(commands.Cog):
         try:
             player = bot.music.players[guild_id]
         except KeyError:
-            print(f"Player debug test 20: {bot.user} | {self.bot.user}")
+            logging.debug(f"Player debug test 20: {bot.user} | {self.bot.user}")
             raise GenericError(
                 f"**Trình phát bot {bot.user.mention} đã bị chấm dứt trước khi kết nối với kênh thoại"
                  f" (hoặc trình phát chưa được khởi chạy)...\nĐể đề phòng, hãy thử lại.**"
@@ -6463,7 +6464,7 @@ class Music(commands.Cog):
                             raise GenericError("**Không có máy chủ âm nhạc có sẵn.**")
 
                     except Exception as e:
-                        print(f"Xảy ra sự cố trong lúc tìm kiếm...\n{query}\n{traceback.format_exc()}")
+                        logging.error(f"Xảy ra sự cố trong lúc tìm kiếm...\n{query}\n{traceback.format_exc()}")
                         exceptions.add(repr(e))
 
                     if tracks or not source:

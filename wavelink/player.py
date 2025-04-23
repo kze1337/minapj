@@ -200,6 +200,7 @@ class Player:
         self.last_position = 0
         self.position_timestamp = None
         self.ping = None
+        self.oauth_token = None
 
         self._voice_state = {}
 
@@ -396,13 +397,15 @@ class Player:
         self.channel_id = None
         await self._get_shard_socket(guild.shard_id).voice_state(self.guild_id, None)
 
-    async def play(self, track: Track, *, replace: bool = True, start: int = 0, end: int = 0, temp_id: str = None, **kwargs) -> None:
+    async def play(self, track: Track, *, replace: bool = True, start: int = 0, end: int = 0, temp_id: str = None, oauth_token: str = None, **kwargs) -> None:
         """|coro|
 
         Play a WaveLink Track.
 
         Parameters
         ------------
+        oauth_token: something idk
+        temp_id: str
         track: :class:`Track`
             The :class:`Track` to initiate playing.
         replace: bool
@@ -458,13 +461,15 @@ class Player:
                 "volume": vol,
                 "position": int(start),
                 "paused": pause,
-                "filters": self.filters,
+                "filters": self.filters
             }
 
             if end > 0:
                 payload['endTime'] = str(end)
+            if not oauth_token and self.oauth_token:
+                oauth_token = self.oauth_token
 
-            await self.node.update_player(self.guild_id, payload, replace)
+            await self.node.update_player(self.guild_id, payload, oauth_token, replace)
 
         __log__.debug(f'PLAYER | Started playing track:: {str(track)} ({self.channel_id})')
 

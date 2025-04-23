@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import os
 import pprint
 import random
 import aiohttp
@@ -458,6 +459,7 @@ class LavalinkPlayer(wavelink.Player):
         self._new_node_task: Optional[asyncio.Task] = None
         self._queue_updater_task: Optional[asyncio.Task] = None
         self.auto_skip_track_task: Optional[asyncio.Task] = None
+        self.oauth_token = os.environ.get("PLUGINS_YOUTUBE_OAUTH_REFRESHTOKEN", None)
 
         stage_template = kwargs.pop("stage_title_template", None)
 

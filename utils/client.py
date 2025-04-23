@@ -162,10 +162,10 @@ class BotPool:
         if e:
 
             if isinstance(e, disnake.PrivilegedIntentsRequired):
-                self.log.error(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}: {e}\n" + ("=" * 30))
+                self.log.error(f"Không khởi động bot được cấu hình trên: {bot.identifier}: {e}")
 
             elif isinstance(e, disnake.LoginFailure) and "Improper token" in str(e):
-                self.log.error(("=" * 30) + f"\nKhông khởi động bot được cấu hình trên: {bot.identifier}\n" + ( "=" * 30))
+                self.log.error(f"Không khởi động bot được cấu hình trên: {bot.identifier}: {e}")
 
             else:
                 traceback.print_tb(e.__traceback__)
