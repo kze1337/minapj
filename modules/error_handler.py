@@ -179,7 +179,7 @@ class ErrorHandler(commands.Cog):
                     color=disnake.Colour.red(),
                     title="Đã có một sự cố đã xảy ra:",
                     description=f"```py\n{repr(error)[:2030].replace(self.bot.http.token, 'mytoken')}```"
-                ).set_thumbnail(url="https://cdn.discordapp.com/attachments/1172052818501308427/1176426375704498257/1049220311318540338.png?ex=656ed370&is=655c5e70&hm=11d80b14a3ca28d04f7ac48d3a39b0c6d5947d20c9ae78cee9a4e511ce65f301&")
+                ).set_thumbnail(url="https://i.ibb.co/8LJMVrPQ/stamp0636-5696.png")
                 if self.bot.config["AUTO_ERROR_REPORT_WEBHOOK"]:
                     send_webhook = True
                     kwargs["embed"].description += " `Nhà phát triển của tôi sẽ được thông báo về vấn đề này.`"
