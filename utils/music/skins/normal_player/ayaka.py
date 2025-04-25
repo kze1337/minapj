@@ -71,6 +71,8 @@ class DefaultProgressbarSkin:
             case "applemusic":
                 s_name = "Apple Music"
                 src_emoji = "<:applemusic:1232560350449242123>"
+            case "http":
+                s_name = "HTTP"
             case _:
                 s_name = "Không biết"
                 src_emoji = "<:LogoModSystem:1155781711024635934>"

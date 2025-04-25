@@ -117,7 +117,7 @@ class Music(commands.Cog):
     @commands.slash_command(
         description=f"{desc_prefix}Kích hoạt/chỉnh sửa hệ thống thông báo/trạng thái kênh tự động với tên bài hát.",
         extras={"only_voiced": True, "exclusive_cooldown": True}, cooldown=stage_cd, max_concurrency=stage_mc,
-        default_member_permissions=disnake.Permissions(manage_guild=True), dm_permission=False
+        default_member_permissions=disnake.Permissions(manage_guild=True)
     )
     async def stage_announce(
             self, inter: disnake.AppCmdInter,
@@ -178,7 +178,7 @@ class Music(commands.Cog):
     @check_voice()
     @can_send_message_check()
     @commands.message_command(name="add to queue", extras={"check_player": False},
-                              cooldown=play_cd, max_concurrency=play_mc, dm_permission=False)
+                              cooldown=play_cd, max_concurrency=play_mc)
     async def message_play(self, inter: disnake.MessageCommandInteraction):
 
         if not inter.target.content:
@@ -275,7 +275,7 @@ class Music(commands.Cog):
     @can_send_message_check()
     @commands.max_concurrency(1, commands.BucketType.guild)
     @commands.slash_command(
-        extras={"only_voiced": True}, dm_permission=False,
+        extras={"only_voiced": True},
         description=f"{desc_prefix}Kết nối (hoặc chuyển sang một) kênh thoại."
     )
     async def connect(
@@ -490,7 +490,7 @@ class Music(commands.Cog):
 
     @can_send_message_check()
     @commands.slash_command(
-        name="play_music_file", dm_permission=False,
+        name="play_music_file",
         description=f"{desc_prefix}Phát tập tin nhạc trên kênh thoại.",
         extras={"return_first": True}, cooldown=play_cd, max_concurrency=play_mc
     )
@@ -559,7 +559,7 @@ class Music(commands.Cog):
 
     @can_send_message_check()
     @commands.slash_command(
-        description=f"{desc_prefix}Phát nhạc trên kênh thoại.", dm_permission=False,
+        description=f"{desc_prefix}Phát nhạc trên kênh thoại.",
         extras={"return_first": True}, cooldown=play_cd, max_concurrency=play_mc
     )
     async def play(
@@ -1712,7 +1712,7 @@ class Music(commands.Cog):
     @has_source()
     @check_voice()
     @commands.slash_command(
-        description=f"{desc_prefix}Chuyển đến một bài hát cụ thể trong hàng đợi.", dm_permission=False,
+        description=f"{desc_prefix}Chuyển đến một bài hát cụ thể trong hàng đợi.",
         extras={"only_voiced": True}, cooldown=skip_back_cd, max_concurrency=skip_back_mc
     )
     async def skipto(
@@ -1737,7 +1737,7 @@ class Music(commands.Cog):
     @has_source()
     @check_voice()
     @commands.slash_command(
-        description=f"{desc_prefix}Bỏ qua bài hát hiện tại đang phát.", dm_permission=False,
+        description=f"{desc_prefix}Bỏ qua bài hát hiện tại đang phát.",
         extras={"only_voiced": True}, cooldown=skip_back_cd, max_concurrency=skip_back_mc
     )
     async def skip(
@@ -1880,7 +1880,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.max_concurrency(1, commands.BucketType.member)
     @commands.slash_command(
-        description=f"{desc_prefix}Quay lại bài hát trước.", dm_permission=False,
+        description=f"{desc_prefix}Quay lại bài hát trước.",
         extras={"only_voiced": True}, cooldown=skip_back_cd, max_concurrency=skip_back_mc
     )
     async def back(self, inter: disnake.AppCmdInter):
@@ -1945,7 +1945,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Bỏ phiếu để bỏ qua bài hát hiện tại.",
-        extras={"only_voiced": True}, dm_permission=False
+        extras={"only_voiced": True}
     )
     async def voteskip(self, inter: disnake.AppCmdInter):
 
@@ -1999,7 +1999,7 @@ class Music(commands.Cog):
     @has_source()
     @check_voice()
     @commands.slash_command(description=f"{desc_prefix}Điều chỉnh âm lượng âm nhạc.", extras={"only_voiced": True},
-                            cooldown=volume_cd, max_concurrency=volume_mc, dm_permission=False)
+                            cooldown=volume_cd, max_concurrency=volume_mc)
     async def volume(
             self,
             inter: disnake.AppCmdInter, *,
@@ -2094,7 +2094,7 @@ class Music(commands.Cog):
     @has_source()
     @check_voice()
     @commands.slash_command(
-        description=f"{desc_prefix}Tiếp tục âm nhạc.", dm_permission=False,
+        description=f"{desc_prefix}Tiếp tục âm nhạc.",
         extras={"only_voiced": True}, cooldown=pause_resume_cd, max_concurrency=pause_resume_mc
     )
     async def resume(self, inter: disnake.AppCmdInter):
@@ -2138,7 +2138,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Tua bài hát đến một thời gian cụ thể.",
-        extras={"only_voiced": True}, cooldown=seek_cd, max_concurrency=seek_mc, dm_permission=False
+        extras={"only_voiced": True}, cooldown=seek_cd, max_concurrency=seek_mc
     )
     async def seek(
             self,
@@ -2365,7 +2365,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Xác định số lần lặp lại của bài hát hiện tại.",
-        extras={"only_voiced": True}, cooldown=loop_cd, max_concurrency=loop_mc, dm_permission=False,
+        extras={"only_voiced": True}, cooldown=loop_cd, max_concurrency=loop_mc,
     )
     async def loop_amount(
             self,
@@ -2413,7 +2413,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Xóa một bài hát cụ thể khỏi hàng đợi.",
-        extras={"only_voiced": True}, max_concurrency=remove_mc, dm_permission=False
+        extras={"only_voiced": True}, max_concurrency=remove_mc
     )
     async def remove(
             self,
@@ -2465,7 +2465,7 @@ class Music(commands.Cog):
     @has_player()
     @check_voice()
     @commands.slash_command(
-        description=f"{desc_prefix}Đưa các bài hát đã được chơi vào lại trong hàng.", dm_permission=False,
+        description=f"{desc_prefix}Đưa các bài hát đã được chơi vào lại trong hàng.",
         extras={"only_voiced": True}, cooldown=queue_manipulation_cd, max_concurrency=remove_mc
     )
     async def readd_songs(self, inter: disnake.AppCmdInter):
@@ -2524,7 +2524,7 @@ class Music(commands.Cog):
     @has_player()
     @check_voice()
     @commands.slash_command(
-        description=f"{desc_prefix}Xoay hàng đợi đến bài hát được chỉ định.", dm_permission=False,
+        description=f"{desc_prefix}Xoay hàng đợi đến bài hát được chỉ định.",
         extras={"only_voiced": True}, cooldown=queue_manipulation_cd, max_concurrency=remove_mc
     )
     async def rotate(
@@ -2582,7 +2582,7 @@ class Music(commands.Cog):
     @is_dj()
     @has_player()
     @check_voice()
-    @commands.slash_command(extras={"only_voiced": True}, cooldown=song_request_thread_cd, dm_permission=False,
+    @commands.slash_command(extras={"only_voiced": True}, cooldown=song_request_thread_cd,
                             description=f"{desc_prefix}Tạo một cuộc trò chuyện chủ đề/tạm thời cho các yêu cầu bài hát (yêu cầu âm nhạc)")
     async def song_request_thread(self, inter: disnake.AppCmdInter):
 
@@ -2653,7 +2653,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Kích hoạt/Vô hiệu hóa hiệu ứng Nightcore.",
-        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc, dm_permission=False,
+        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc,
     )
     async def nightcore(self, inter: disnake.AppCmdInter):
 
@@ -2685,7 +2685,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Kích hoạt/Vô hiệu hóa hiệu ứng 3D.",
-        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc, dm_permission=False,
+        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc,
     )
     async def filter3d(self, inter: disnake.AppCmdInter):
 
@@ -2717,7 +2717,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Kích hoạt/Vô hiệu hóa hiệu ứng slowmo.",
-        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc, dm_permission=False,
+        extras={"only_voiced": True}, cooldown=filtercd, max_concurrency=filtermc,
     )
     async def filter_slowmo(self, inter: disnake.AppCmdInter):
 
@@ -2822,7 +2822,7 @@ class Music(commands.Cog):
     @has_player()
     @check_voice()
     @commands.user_command(name=disnake.Localized("Add DJ", data={disnake.Locale.pt_BR: "Adicionar DJ"}),
-                           extras={"only_voiced": True}, dm_permission=False)
+                           extras={"only_voiced": True})
     async def adddj_u(self, inter: disnake.UserCommandInteraction):
         await self.add_dj(interaction=inter, user=inter.target)
 
@@ -2840,7 +2840,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Thêm thành viên vào danh sách của DJ vào phiên trình phát hiện tại.",
-        extras={"only_voiced": True}, dm_permission=False
+        extras={"only_voiced": True}
     )
     async def add_dj(
             self,
@@ -2948,7 +2948,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Dừng người chơi và ngắt kết nối tôi khỏi kênh giọng nói.",
-        extras={"only_voiced": True}, dm_permission=False
+        extras={"only_voiced": True}
     )
     async def stop(self, inter: disnake.AppCmdInter):
 
@@ -3001,7 +3001,7 @@ class Music(commands.Cog):
     @check_voice()
     @commands.slash_command(
         description=f"{desc_prefix}Thử nghiệm: Lưu bài hát hiện tại và hàng đợi để sử dụng chúng bất kỳ lúc nào.",
-        extras={"only_voiced": True}, dm_permission=False, cooldown=queue_manipulation_cd, max_concurrency=remove_mc
+        extras={"only_voiced": True}, cooldown=queue_manipulation_cd, max_concurrency=remove_mc
     )
     async def save_queue(self, inter: disnake.AppCmdInter):
 
@@ -3076,7 +3076,7 @@ class Music(commands.Cog):
 
     @has_player()
     @check_voice()
-    @commands.slash_command(name="queue", extras={"only_voiced": True}, dm_permission=False)
+    @commands.slash_command(name="queue", extras={"only_voiced": True})
     async def q(self, inter):
         pass
 
@@ -4190,7 +4190,7 @@ class Music(commands.Cog):
     @commands.max_concurrency(1, commands.BucketType.member, wait=False)
     @commands.slash_command(
         description=f"{desc_prefix}Quản lý yêu thích/tích hợp và liên kết của bạn từ máy chủ.",
-        cooldown=fav_cd, dm_permission=False)
+        cooldown=fav_cd)
     async def fav_manager(self, inter: disnake.AppCmdInter):
 
         bot = self.bot
@@ -4274,7 +4274,7 @@ class Music(commands.Cog):
         await self.nowplaying.callback(self=self, inter=ctx)
 
     @commands.slash_command(description=f"{desc_prefix}Hiển thị thông tin người chơi đang hoạt động.",
-                            cooldown=playerinfo_cd, dm_permission=False)
+                            cooldown=playerinfo_cd)
     async def nowplaying(self, inter: disnake.AppCmdInter):
         await inter.response.defer(ephemeral=True)
 

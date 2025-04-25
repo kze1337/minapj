@@ -355,7 +355,7 @@ class MusicSettings(commands.Cog):
 
     @commands.slash_command(
         description=f"{desc_prefix}Thay đổi một số cài đặt tiêu chuẩn của người chơi.",
-        default_member_permissions=disnake.Permissions(manage_guild=True), dm_permission=False
+        default_member_permissions=disnake.Permissions(manage_guild=True)
     )
     async def player_settings(self, interaction: disnake.AppCmdInter):
 
@@ -1099,7 +1099,7 @@ class MusicSettings(commands.Cog):
         await self.add_dj_role.callback(self=self, interaction=ctx, role=role)
 
     @commands.slash_command(
-        description=f"{desc_prefix}Thêm một vị trí vào danh sách DJ của máy chủ.", dm_permission=False,
+        description=f"{desc_prefix}Thêm một vị trí vào danh sách DJ của máy chủ.",
         default_member_permissions=disnake.Permissions(manage_guild=True), cooldown=djrole_cd, max_concurrency=djrole_mc
     )
     async def add_dj_role(
@@ -1142,7 +1142,7 @@ class MusicSettings(commands.Cog):
         await self.remove_dj_role.callback(self=self, interaction=ctx, role=role)
 
     @commands.slash_command(
-        description=f"{desc_prefix}Xóa một vị trí khỏi danh sách DJ của máy chủ.", dm_permission=False,
+        description=f"{desc_prefix}Xóa một vị trí khỏi danh sách DJ của máy chủ.",
         default_member_permissions=disnake.Permissions(manage_guild=True), cooldown=djrole_cd, max_concurrency=djrole_mc
     )
     async def remove_dj_role(
@@ -1192,7 +1192,7 @@ class MusicSettings(commands.Cog):
 
     @commands.slash_command(
         description=f"{desc_prefix}Thay đổi giao diện của người chơi.", cooldown=skin_cd, max_concurrency=skin_mc,
-        default_member_permissions=disnake.Permissions(manage_guild=True), dm_permission=False
+        default_member_permissions=disnake.Permissions(manage_guild=True)
     )
     async def change_skin(self, interaction: disnake.AppCmdInter):
 
@@ -1428,7 +1428,7 @@ class MusicSettings(commands.Cog):
 
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.slash_command(
-        description=f"{desc_prefix}Xem thông tin từ các máy chủ âm nhạc (máy chủ Lavalink).", dm_permission=False
+        description=f"{desc_prefix}Xem thông tin từ các máy chủ âm nhạc (máy chủ Lavalink)."
     )
     async def nodeinfo(self, interaction: disnake.AppCmdInter):
 
@@ -1526,7 +1526,7 @@ class MusicSettings(commands.Cog):
     @commands.is_owner()
     @commands.slash_command(cooldown=customskin_cd, max_concurrency=customskin__mc,
                             description=f"{desc_prefix}Tạo giao diện / mẫu của riêng bạn để sử dụng trong trình phát nhạc (Không khả dụng).",
-                            default_member_permissions=disnake.Permissions(administrator=True), dm_permission=False)
+                            default_member_permissions=disnake.Permissions(administrator=True))
     async def custom_skin(self, inter: disnake.AppCmdInter):
 
         inter, bot = await select_bot_pool(inter, return_new=True)

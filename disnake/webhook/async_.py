@@ -38,7 +38,7 @@ from ..http import Route, set_attachments, to_multipart, to_multipart_with_attac
 from ..message import Message
 from ..mixins import Hashable
 from ..object import Object
-from ..ui.action_row import MessageUIComponent, components_to_dict
+from ..ui.action_row import components_to_dict
 from ..user import BaseUser, User
 
 __all__ = (
@@ -49,7 +49,6 @@ __all__ = (
 )
 
 _log = logging.getLogger(__name__)
-_log.disabled=True
 
 if TYPE_CHECKING:
     import datetime
@@ -64,11 +63,12 @@ if TYPE_CHECKING:
     from ..http import Response
     from ..mentions import AllowedMentions
     from ..message import Attachment
+    from ..poll import Poll
     from ..state import ConnectionState
     from ..sticker import GuildSticker, StandardSticker, StickerItem
     from ..types.message import Message as MessagePayload
     from ..types.webhook import Webhook as WebhookPayload
-    from ..ui.action_row import Components
+    from ..ui._types import MessageComponentInput
     from ..ui.view import View
 
 MISSING = utils.MISSING
@@ -508,10 +508,11 @@ def handle_message_parameters_dict(
     embed: Optional[Embed] = MISSING,
     embeds: List[Embed] = MISSING,
     view: Optional[View] = MISSING,
-    components: Optional[Components[MessageUIComponent]] = MISSING,
+    components: Optional[MessageComponentInput] = MISSING,
     allowed_mentions: Optional[AllowedMentions] = MISSING,
     previous_allowed_mentions: Optional[AllowedMentions] = None,
     stickers: Sequence[Union[GuildSticker, StandardSticker, StickerItem]] = MISSING,
+    poll: Poll = MISSING,
     # these parameters are exclusive to webhooks in forum/media channels
     thread_name: str = MISSING,
     applied_tags: Sequence[Snowflake] = MISSING,
@@ -580,6 +581,8 @@ def handle_message_parameters_dict(
         payload["thread_name"] = thread_name
     if applied_tags:
         payload["applied_tags"] = [t.id for t in applied_tags]
+    if poll is not MISSING:
+        payload["poll"] = poll._to_dict()
 
     return DictPayloadParameters(payload=payload, files=files)
 
@@ -599,10 +602,11 @@ def handle_message_parameters(
     embed: Optional[Embed] = MISSING,
     embeds: List[Embed] = MISSING,
     view: Optional[View] = MISSING,
-    components: Optional[Components[MessageUIComponent]] = MISSING,
+    components: Optional[MessageComponentInput] = MISSING,
     allowed_mentions: Optional[AllowedMentions] = MISSING,
     previous_allowed_mentions: Optional[AllowedMentions] = None,
     stickers: Sequence[Union[GuildSticker, StandardSticker, StickerItem]] = MISSING,
+    poll: Poll = MISSING,
     # these parameters are exclusive to webhooks in forum/media channels
     thread_name: str = MISSING,
     applied_tags: Sequence[Snowflake] = MISSING,
@@ -627,6 +631,7 @@ def handle_message_parameters(
         stickers=stickers,
         thread_name=thread_name,
         applied_tags=applied_tags,
+        poll=poll,
     )
 
     if params.files:
@@ -784,7 +789,7 @@ class WebhookMessage(Message):
         files: List[File] = MISSING,
         attachments: Optional[List[Attachment]] = MISSING,
         view: Optional[View] = MISSING,
-        components: Optional[Components[MessageUIComponent]] = MISSING,
+        components: Optional[MessageComponentInput] = MISSING,
         allowed_mentions: Optional[AllowedMentions] = None,
     ) -> WebhookMessage:
         """|coro|
@@ -1495,14 +1500,14 @@ class Webhook(BaseWebhook):
         embeds: List[Embed] = ...,
         allowed_mentions: AllowedMentions = ...,
         view: View = ...,
-        components: Components[MessageUIComponent] = ...,
+        components: MessageComponentInput = ...,
+        poll: Poll = ...,
         thread: Snowflake = ...,
         thread_name: str = ...,
         applied_tags: Sequence[Snowflake] = ...,
         wait: Literal[True],
         delete_after: float = ...,
-    ) -> WebhookMessage:
-        ...
+    ) -> WebhookMessage: ...
 
     @overload
     async def send(
@@ -1521,14 +1526,14 @@ class Webhook(BaseWebhook):
         embeds: List[Embed] = ...,
         allowed_mentions: AllowedMentions = ...,
         view: View = ...,
-        components: Components[MessageUIComponent] = ...,
+        components: MessageComponentInput = ...,
+        poll: Poll = ...,
         thread: Snowflake = ...,
         thread_name: str = ...,
         applied_tags: Sequence[Snowflake] = ...,
         wait: Literal[False] = ...,
         delete_after: float = ...,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     async def send(
         self,
@@ -1546,12 +1551,13 @@ class Webhook(BaseWebhook):
         embeds: List[Embed] = MISSING,
         allowed_mentions: AllowedMentions = MISSING,
         view: View = MISSING,
-        components: Components[MessageUIComponent] = MISSING,
+        components: MessageComponentInput = MISSING,
         thread: Snowflake = MISSING,
         thread_name: str = MISSING,
         applied_tags: Sequence[Snowflake] = MISSING,
         wait: bool = False,
         delete_after: float = MISSING,
+        poll: Poll = MISSING,
     ) -> Optional[WebhookMessage]:
         """|coro|
 
@@ -1678,6 +1684,11 @@ class Webhook(BaseWebhook):
 
             .. versionadded:: 2.9
 
+        poll: :class:`Poll`
+            The poll to send with the message.
+
+            .. versionadded:: 2.10
+
         Raises
         ------
         HTTPException
@@ -1750,6 +1761,7 @@ class Webhook(BaseWebhook):
             applied_tags=applied_tags,
             allowed_mentions=allowed_mentions,
             previous_allowed_mentions=previous_mentions,
+            poll=poll,
         )
 
         adapter = async_context.get()
@@ -1841,7 +1853,7 @@ class Webhook(BaseWebhook):
         files: List[File] = MISSING,
         attachments: Optional[List[Attachment]] = MISSING,
         view: Optional[View] = MISSING,
-        components: Optional[Components[MessageUIComponent]] = MISSING,
+        components: Optional[MessageComponentInput] = MISSING,
         allowed_mentions: Optional[AllowedMentions] = None,
         thread: Optional[Snowflake] = None,
     ) -> WebhookMessage:
