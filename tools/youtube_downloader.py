@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import yt_dlp
 import sys
 from pathlib import Path
@@ -199,22 +197,3 @@ def download_audio(
         return last_successful_path
     else:
         return None
-
-if __name__ == "__main__":
-    video_url = input("Enter the YouTube video URL: ")
-
-    output_directory = Path("../downloaded_audio")
-    audio_format_input = 'mp3'
-
-
-    downloaded_file = download_audio(
-        video_url,
-        output_dir=output_directory,
-        audio_format=audio_format_input
-    )
-
-    if downloaded_file:
-        print(f"\nDownload complete!")
-        print(f"Audio saved to: {downloaded_file}")
-    else:
-        print("\nAudio download failed.")
