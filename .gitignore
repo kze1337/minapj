@@ -199,3 +199,4 @@ plugins
 .spotipy_cache
 openascode.sh
 langDB.sql
+token.json

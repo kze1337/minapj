@@ -4,7 +4,7 @@ from disnake.ext import commands
 from disnake import Embed, File, Option, OptionType, AppCommandInteraction, ApplicationCommandType, ButtonStyle, MessageInteraction
 from disnake.ui import Button,View
 from utils.client import BotCore
-from tools.youtube_downloader import download_audio, FileTooLargeError
+from tools.youtube_downloader import YoutubeDownloader, FileTooLargeError
 from asgiref.sync import sync_to_async
 import os
 import pathlib
@@ -38,6 +38,7 @@ class YoutubeTools(commands.Cog):
             3: 75 * 1024 * 1024
         }
         self.downloaded = None
+        self.yt_dlp_client = YoutubeDownloader()
 
     @staticmethod
     def render_embed(stat1 = status.get(0), stat2 = status.get(0), stat3 = status.get(0), error = None, image = image_links.get("stamp0787")) -> Embed:
@@ -80,7 +81,7 @@ class YoutubeTools(commands.Cog):
             await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
                                                                         stat2=status.get(1),
                                                                         stat3=status.get(0)))
-            await sync_to_async(download_audio)(url, download_folder, 'mp3', 192, limit)
+            await sync_to_async(self.yt_dlp_client.download_audio)(url, download_folder, 'mp3', limit)
         except FileTooLargeError:
             await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
                                                                     stat2=status.get(3),
@@ -130,12 +131,11 @@ class YoutubeTools(commands.Cog):
         for file in os.listdir(download_folder):
             file_path = os.path.join(download_folder, file)
             if os.path.isfile(file_path):
-                file = await ctx.edit_original_response(file=File(file_path), embed=None)
+                file = await ctx.edit_original_response(file=File(file_path), embed=self.render_embed(stat1=status.get(2),
+                                                                                                        stat2=status.get(2),
+                                                                                                        stat3=status.get(2)))
                 os.remove(file_path)
 
-        await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
-                                                                    stat2=status.get(2),
-                                                                    stat3=status.get(2)))
 
         attachment = file.attachments[0].url
         self.downloaded = attachment
