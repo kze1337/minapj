@@ -1,3 +1,4 @@
+import random
 from typing import Optional
 
 import yt_dlp
@@ -48,6 +49,11 @@ class YoutubeDownloader:
         token: TokenInfo = loop.run_until_complete(task)
         return token
 
+    @staticmethod
+    def poll_for_client() -> str:
+        clients = ["web", "mweb", "android"]
+        return random.choice(clients)
+
     def download_audio(
             self,
             url: str,
@@ -65,13 +71,13 @@ class YoutubeDownloader:
                         Defaults to the current directory.
             audio_format: Desired audio format (e.g., 'mp3', 'm4a', 'wav', 'opus')
             max_filesize_mb: Maximum allowed file size in Megabytes (MB).
-                             If None or 0, no limit is applied.
+                            If None or 0, no limit is applied.
 
         Returns:
             A Path object to the downloaded audio file if successful and within
             size limits, otherwise None.
             Note: For playlists, size check applies to *each* video individually.
-                  Returns the path of the *last* successfully processed file.
+                Returns the path of the *last* successfully processed file.
         """
         if not url:
             return None
@@ -102,7 +108,7 @@ class YoutubeDownloader:
             'default': str(output_path / '%(title)s.%(ext)s'),
         }, 'keepvideo': False, 'noplaylist': False, 'progress_hooks': [progress_hook], 'noprogress': True,
                     'ignoreerrors': True, 'restrictfilenames': True, 'quiet': True, 'verbose': False, 'no_warnings': True,
-                    'simulate': False, 'extract_flat': False, 'extractor-arg': f'youtube:po_token=web.gvs+{self.get_token()}'}
+                    'simulate': False, 'extract_flat': False, 'extractor-arg': f'youtube:po_token={self.poll_for_client()}.gvs+{self.get_token()}'}
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -131,7 +137,6 @@ class YoutubeDownloader:
                         sim_opts['quiet'] = True
                         sim_opts['verbose'] = False
                         sim_opts['progress_hooks'] = []
-                        sim_opts['postprocessors'] = []
                         sim_opts['keepvideo'] = True
 
                         with yt_dlp.YoutubeDL(sim_opts) as sim_ydl:
