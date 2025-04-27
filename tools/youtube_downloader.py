@@ -52,7 +52,7 @@ class YoutubeDownloader:
 
     @staticmethod
     def poll_for_client() -> str:
-        clients = ["web", "mweb", "android"]
+        clients = ["web", "mweb"]
         return random.choice(clients)
 
     def download_audio(
