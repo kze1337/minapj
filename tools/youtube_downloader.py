@@ -39,8 +39,9 @@ class YoutubeDownloader:
             self.update()
         else:
             token_data = TokenInfo(token["updated"], token["potoken"], token["visitor_data"])
+            self.token_data = token_data
 
-        return token_data.potoken if token_data is not None else ""
+        return self.token_data.potoken if self.token_data is not None else ""
 
     @staticmethod
     def run_tools() -> TokenInfo:
