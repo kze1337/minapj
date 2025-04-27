@@ -119,9 +119,6 @@ class YoutubeTools(commands.Cog):
         download_folder = await self.get_file(url, guild_id, user_id, boost_tier, ctx)
 
         if download_folder is None or len(os.listdir(download_folder)) == 0:
-            await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
-                                                                     stat2=status.get(3),
-                                                                     stat3=status.get(3), error="Đã xảy ra lỗi trong quá trình tải video. Vui lòng thử lại sau."))
             return
 
         await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
