@@ -1,6 +1,5 @@
 import disnake
 from disnake.ext import commands
-import datetime
 from typing import Union
 from utils.others import CustomContext
 from utils.client import BotCore
