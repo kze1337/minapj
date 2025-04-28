@@ -86,7 +86,7 @@ if __name__ == '__main__':
     url_test = 'https://open.spotify.com/track/2C7DrdqoU4U7Wc0vZRVi21?si=f4e1782335a74b8d' # Blend-S op / ぼなぺてぃーと▽S
 
     worker: Spotify_Worker = Spotify_Worker()
-    logging.info("Tesing in progress...")
+    logging.info("Testing in progress...")
     start = time.time()
     data = {"url": worker.resolve_url(url_test), "query": worker.search_song(query)}
     end = time.time()
