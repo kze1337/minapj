@@ -1,9 +1,9 @@
-from song import Song
-from audio.AudioProvider_youtube import YouTube
-from audio.AudioProvider_soundcloud import SoundCloud
-from client import SpotifyClient
+from tools.spotify.song import Song
+from tools.spotify.audio.AudioProvider_youtube import YouTube
+from tools.spotify.audio.AudioProvider_soundcloud import SoundCloud
+from tools.spotify.client import SpotifyClient
 import os
-import logging
+import logging as lg
 import re
 
 class NoUrl(Exception):
@@ -16,6 +16,8 @@ class InvalidUrls(Exception):
     pass
 
 URL_REGEX = re.compile("https?://(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}[-a-zA-Z0-9()@:%_+.~#?&/=]*")
+
+logging = lg.getLogger(__name__)
 
 class Spotify_Worker:
     def __init__(self):
@@ -73,33 +75,3 @@ class Spotify_Worker:
         else:
             logging.warning(f"Seem SoundCloud didn't return anything, falling back to youtube")
             return self._run(self.youtube_client, song.name)
-
-
-# TESTING / Debug only
-if __name__ == '__main__':
-    import utils.logger
-    import dotenv
-    import time
-    dotenv.load_dotenv()
-    utils.logger.setup_logger()
-    query = "チルノのパーフェクトさんすう教室"
-    url_test = 'https://open.spotify.com/track/2C7DrdqoU4U7Wc0vZRVi21?si=f4e1782335a74b8d' # Blend-S op / ぼなぺてぃーと▽S
-
-    worker: Spotify_Worker = Spotify_Worker()
-    logging.info("Testing in progress...")
-    start = time.time()
-    data = {"url": worker.resolve_url(url_test), "query": worker.search_song(query)}
-    end = time.time()
-    run_time = end - start
-    logging.info(f"Finished... (url): {data['url']}")
-    logging.info(f"Finished... (query): {data['query']}")
-    logging.info(f"Runtime: {run_time:.6f} seconds")
-    """
-    Run results:
-    [28-04-2025 16:42:24] [root:89] [<module>] [✅] [INFO] - Tesing in progress...
-    [28-04-2025 16:42:56] [root:94] [<module>] [✅] [INFO] - Finished... (url): https://soundcloud.com/user-278546453/shappyhardcore-remix 
-        #   ❌ Seem SoundCloud return the wrong song type (the remix one) so we need to use youtube here..?
-    [28-04-2025 16:42:56] [root:95] [<module>] [✅] [INFO] - Finished... (query): https://soundcloud.com/ragethunder/8kqyvdynzc59
-    [28-04-2025 16:42:56] [root:96] [<module>] [✅] [INFO] - Runtime: 32.024596 seconds
-
-    """
