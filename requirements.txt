@@ -31,3 +31,6 @@ typing_extensions
 yarl
 orjson
 websocket-client
+soundcloud-v2
+pytube
+RapidFuzz
