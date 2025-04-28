@@ -147,7 +147,7 @@ class SpotifyClient(Spotify, metaclass=Singleton):
         cache_file_loc = pathlib.Path("./cache/.spotify")
 
         if not cache_file_loc.exists():
-            os.mkdir("./cache")
+            os.makedirs("./cache", exist_ok=True)
 
         if use_cache_file and cache_file_loc.exists():
             with open(cache_file_loc, "r", encoding="utf-8") as cache_file:

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rapidfuzz import fuzz
 
-from client import SpotifyClient
+from tools.spotify.client import SpotifyClient
 
 __all__ = ["Song", "SongList", "SongError"]
 
