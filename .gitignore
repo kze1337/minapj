@@ -200,3 +200,4 @@ plugins
 openascode.sh
 langDB.sql
 token.json
+tools/spotify/cache/.spotify
