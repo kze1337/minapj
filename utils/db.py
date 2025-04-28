@@ -145,7 +145,7 @@ class LocalDatabase(BaseDB):
         super().__init__()
 
         if not os.path.isdir(dir_):
-            os.makedirs(dir_)
+            os.makedirs(dir_, exist_ok=True)
 
         self._connect = CustomTinyMongoClient(dir_)
 
@@ -231,7 +231,7 @@ class MongoDatabase(BaseDB):
     async def update_from_json(self):
 
         if not os.path.isdir("./local_dbs/backups"):
-            os.makedirs("./local_dbs/backups")
+            os.makedirs("./local_dbs/backups", exist_ok=True)
 
         for f in os.listdir("./local_dbs"):
 
