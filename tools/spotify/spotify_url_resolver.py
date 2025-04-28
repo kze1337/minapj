@@ -4,7 +4,9 @@ from tools.spotify.audio.AudioProvider_soundcloud import SoundCloud
 from tools.spotify.client import SpotifyClient
 import os
 import logging as lg
-import re
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class NoUrl(Exception):
     pass
@@ -14,8 +16,6 @@ class InvalidArgs(Exception):
 
 class InvalidUrls(Exception):
     pass
-
-URL_REGEX = re.compile("https?://(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}[-a-zA-Z0-9()@:%_+.~#?&/=]*")
 
 logging = lg.getLogger(__name__)
 

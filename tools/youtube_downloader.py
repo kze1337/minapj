@@ -3,8 +3,8 @@ from typing import Optional
 
 import yt_dlp
 from pathlib import Path
-from youtube_trusted_session_generator.potoken_generator import main
-from youtube_trusted_session_generator.potoken_generator.extractor import TokenInfo
+from tools.youtube_trusted_session_generator.potoken_generator import main
+from tools.youtube_trusted_session_generator.potoken_generator.extractor import TokenInfo
 import nodriver
 import json
 import datetime

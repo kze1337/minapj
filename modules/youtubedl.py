@@ -1,16 +1,25 @@
 import asyncio
-
-from disnake.ext import commands
-from disnake import Embed, File, Option, OptionType, AppCommandInteraction, ApplicationCommandType, ButtonStyle, MessageInteraction
-from disnake.ui import Button,View
-from utils.client import BotCore
-from tools.youtube_downloader import YoutubeDownloader, FileTooLargeError
-from asgiref.sync import sync_to_async
 import os
 import pathlib
-from urllib.parse import urlparse, parse_qs
+import re
+
+from disnake.ext import commands
+from disnake import Embed, File, Option, OptionType, AppCommandInteraction, ApplicationCommandType, ButtonStyle, \
+    MessageInteraction
+from disnake.ui import Button,View
+
+from utils.client import BotCore
+from utils.music.spotify import spotify_regex
 from utils.music.converters import YOUTUBE_VIDEO_REG
 from utils.music.checks import check_voice
+
+from tools.youtube_downloader import YoutubeDownloader, FileTooLargeError
+from tools.spotify.spotify_url_resolver import Spotify_Worker
+
+from asgiref.sync import sync_to_async
+from urllib.parse import urlparse, parse_qs
+
+sound_cloud_regex = re.compile(r"https?:\/\/(?:www\.)?soundcloud\.com\/[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)?\/?(?:[\?#].*)?$")
 
 status = {
     0: "<:waitt:1364952189654536232>",
@@ -39,6 +48,7 @@ class YoutubeTools(commands.Cog):
         }
         self.downloaded = None
         self.yt_dlp_client = YoutubeDownloader()
+        self.spotify_client: Spotify_Worker = Spotify_Worker()
 
     @staticmethod
     def render_embed(stat1 = status.get(0), stat2 = status.get(0), stat3 = status.get(0), error = None, image = image_links.get("stamp0787")) -> Embed:
@@ -109,6 +119,28 @@ class YoutubeTools(commands.Cog):
         boost_tier = ctx.guild.premium_tier
         file = None
         await ctx.response.defer()
+
+        if spotify_regex.match(url):
+            await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
+                                                                        stat2=status.get(1),
+                                                                        stat3=status.get(0)))
+            url = await sync_to_async(self.spotify_client.resolve_url)(url)
+
+        if sound_cloud_regex.match(url):
+            txt = ""
+            cmd = f"</play:" + str(self.bot.get_global_command_named("play", cmd_type=ApplicationCommandType.chat_input).id) + ">"
+
+            embed = Embed(title="Đã lấy được audio...", color=0x00ff00)
+            txt += f"> 📹 **Spotify link**: {url}\n"
+            txt += f"> <:star3:1155781751914889236> Sao chép link video sau đó dán vào lệnh {cmd} để phát bài hát này\n"
+            txt += f"```{url}```"
+            embed.description = txt
+            embed.set_thumbnail(image_links.get("stamp0234-4598"))
+            btn_mobile_view = Button(label="Copy bằng điện thoại", custom_id="ytdl-mobile-view-btn", style=ButtonStyle.primary)
+            view = View(timeout=30)
+            view.add_item(btn_mobile_view)
+            await ctx.edit_original_response(embed=embed, view=view)
+            return
 
         if not YOUTUBE_VIDEO_REG.match(url):
             await ctx.edit_original_response(f"❌ URL này không hợp lệ hoặc không phải là link youtube.")
