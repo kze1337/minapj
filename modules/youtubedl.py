@@ -51,16 +51,29 @@ class YoutubeTools(commands.Cog):
         self.spotify_client: Spotify_Worker = Spotify_Worker()
 
     @staticmethod
-    def render_embed(stat1 = status.get(0), stat2 = status.get(0), stat3 = status.get(0), error = None, image = image_links.get("stamp0787")) -> Embed:
-
-        embed = Embed(title="Downloading data...", color=0x00ff00)
-        embed.description = f"""
-                                ## <:api:1249300230336155719> Đang tải dữ liệu từ api về...
-                                > {stat1} Đang lấy dữ liệu
-                                > {stat2} Đang tải về...
-                                > {stat3} Xử lí những bước cuối cùng...
-                                {"> Đã xảy ra lỗi: " + error if error else ""}
-                                """
+    def render_embed(stat1 = status.get(0),
+                        stat2 = status.get(0), stat3 = status.get(0),
+                        error = None,
+                        image = image_links.get("stamp0787"),
+                        is_resolve_spotify = False) -> Embed:
+        if not is_resolve_spotify:
+            embed = Embed(title="Downloading data...", color=0x00ff00)
+            embed.description = f"""
+                                    ## <:api:1249300230336155719> Đang tải dữ liệu từ api về...
+                                    > {stat1} Đang lấy dữ liệu
+                                    > {stat2} Đang tải về...
+                                    > {stat3} Xử lí những bước cuối cùng...
+                                    {"> Đã xảy ra lỗi: " + error if error else ""}
+                                    """
+        else:
+            embed = Embed(title="Resolving data...", color=0x00ff00)
+            embed.description = f"""
+                                    ## <:api:1249300230336155719> Đang phân tích dữ liệu từ api...
+                                    > {stat1} Đang lấy dữ liệu
+                                    > {stat2} Đang phân tích...
+                                    > {stat3} Xử lí những bước cuối cùng...
+                                    {"> Đã xảy ra lỗi: " + error if error else ""}
+                                    """
 
         if image:
             embed.set_thumbnail(image)
@@ -109,7 +122,7 @@ class YoutubeTools(commands.Cog):
     @commands.cooldown(1, 25, commands.BucketType.user)
     @check_voice()
     @commands.guild_only()
-    @commands.slash_command(name="getaudio", description="Download audio from a YouTube video", options=[Option(name="url",
+    @commands.slash_command(name="getaudio", description="Download audio from a video / spotify links", options=[Option(name="url",
                                                                                                                 description="YouTube video URL",
                                                                                                                 type=OptionType.string,
                                                                                                                 required=True)])
@@ -123,7 +136,7 @@ class YoutubeTools(commands.Cog):
         if spotify_regex.match(url):
             await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
                                                                         stat2=status.get(1),
-                                                                        stat3=status.get(0)))
+                                                                        stat3=status.get(0), is_resolve_spotify=True))
             url = await sync_to_async(self.spotify_client.resolve_url)(url)
 
         if sound_cloud_regex.match(url):
