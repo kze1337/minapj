@@ -56,6 +56,8 @@ class Spotify_Worker:
         # if not URL_REGEX.match(url):
         #     raise InvalidUrls("Invalid Urls")
 
+        logging.info("Resolving url: %s", url)
+
         song = self.get_song(url)
 
         if force_use_sc:
@@ -68,6 +70,7 @@ class Spotify_Worker:
             songData = self._run(self.youtube_client, song.name)
             return songData
 
+        logging.info("Fetching data from SoundCloud: %s - %p", song.name, song.url)
         songData = self._run(self.soundcloud_client, song.name)
 
         if songData:
