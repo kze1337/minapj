@@ -51,6 +51,15 @@ class YoutubeDownloader:
         return token
 
     @staticmethod
+    def get_cookie() -> str:
+        try:
+            with open("./cookie.txt", "r", encoding="utf-8") as cookie:
+                if len(cookie.read()) != 0:
+                    return "./cookie.txt"
+        except FileNotFoundError:
+            return ""
+
+    @staticmethod
     def poll_for_client() -> str:
         clients = ["web", "mweb"]
         return random.choice(clients)
@@ -60,7 +69,8 @@ class YoutubeDownloader:
             url: str,
             output_dir: str | Path = Path('.'),
             audio_format: str = 'mp3',
-            max_filesize_mb: float | None = None
+            max_filesize_mb: float | None = None,
+            skip_authentication: bool = False
     ) -> Path | None:
         """
         Downloads audio from a YouTube URL using yt-dlp, respecting file size
@@ -73,6 +83,7 @@ class YoutubeDownloader:
             audio_format: Desired audio format (e.g., 'mp3', 'm4a', 'wav', 'opus')
             max_filesize_mb: Maximum allowed file size in Megabytes (MB).
                             If None or 0, no limit is applied.
+            skip_authentication: Skip the authentication process (get / pass po-token, pass cookies) if set to True.
 
         Returns:
             A Path object to the downloaded audio file if successful and within
@@ -88,6 +99,8 @@ class YoutubeDownloader:
 
         last_successful_path = None
         error_occurred = False
+
+        cookie_data = self.get_cookie()
 
         def progress_hook(d):
             nonlocal last_successful_path
@@ -107,9 +120,24 @@ class YoutubeDownloader:
 
         ydl_opts = {'format': f'bestaudio[ext={audio_format}]/bestaudio/best', 'outtmpl': {
             'default': str(output_path / '%(title)s.%(ext)s'),
-        }, 'keepvideo': False, 'noplaylist': False, 'progress_hooks': [progress_hook], 'noprogress': True,
-                    'ignoreerrors': True, 'restrictfilenames': True, 'quiet': True, 'verbose': False, 'no_warnings': True,
-                    'simulate': False, 'extract_flat': False, 'extractor-arg': f'youtube:po_token={self.poll_for_client()}.gvs+{self.get_token()}'}
+                }, 'keepvideo': False,
+                    'noplaylist': False,
+                    'progress_hooks': [progress_hook],
+                    'noprogress': True,
+                    'ignoreerrors': True,
+                    'restrictfilenames': True,
+                    'quiet': True,
+                    'verbose': False,
+                    'no_warnings': True,
+                    'simulate': False,
+                    'extract_flat': False
+                    }
+
+        if not skip_authentication:
+            if len(cookie_data) != 0:
+                ydl_opts["cookies"] = cookie_data
+            else:
+                ydl_opts["extractor-arg"] = f'youtube:po_token={self.poll_for_client()}.gvs+{self.get_token()}'
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
