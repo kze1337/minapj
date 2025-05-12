@@ -48,7 +48,7 @@ class YoutubeTools(commands.Cog):
         }
         self.downloaded = None
         self.yt_dlp_client = YoutubeDownloader()
-        self.spotify_client: Spotify_Worker = Spotify_Worker()
+        self.spotify_client: Spotify_Worker = self.bot.spotify_client
 
     @staticmethod
     def render_embed(stat1 = status.get(0),

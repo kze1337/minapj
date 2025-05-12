@@ -26,6 +26,7 @@ from dotenv import dotenv_values
 from user_agent import generate_user_agent
 
 from config_loader import load_config
+from tools.spotify.spotify_url_resolver import Spotify_Worker
 from utils.db import MongoDatabase, LocalDatabase, get_prefix, DBModel, global_db_models
 from utils.music.checks import check_pool_bots
 from utils.music.errors import GenericError
@@ -590,6 +591,7 @@ class BotCore(commands.AutoShardedBot):
         super().__init__(*args, **kwargs)
         self.music = music_mode(self)
         self.interaction_id: Optional[int] = None
+        self.spotify_client: Spotify_Worker = Spotify_Worker()
 
         for i in self.config["OWNER_IDS"].split("||"):
 
