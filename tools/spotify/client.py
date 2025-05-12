@@ -75,8 +75,8 @@ class Singleton(type):
         """
 
         # check if initialization has been completed, if yes, raise an Exception
-        if isinstance(self._instance, self):
-            raise SpotifyError("A spotify client has already been initialized")
+        # if isinstance(self._instance, self):
+        #     raise SpotifyError("A spotify client has already been initialized")
 
         credential_manager = None
 
