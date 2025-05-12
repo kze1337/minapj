@@ -48,7 +48,6 @@ class YoutubeTools(commands.Cog):
         }
         self.downloaded = None
         self.yt_dlp_client = YoutubeDownloader()
-        self.spotify_client: Spotify_Worker = self.bot.spotify_client
 
     @staticmethod
     def render_embed(stat1 = status.get(0),
@@ -137,7 +136,7 @@ class YoutubeTools(commands.Cog):
             await ctx.edit_original_response(embed=self.render_embed(stat1=status.get(2),
                                                                         stat2=status.get(1),
                                                                         stat3=status.get(0), is_resolve_spotify=True))
-            url = await sync_to_async(self.spotify_client.resolve_url)(url)
+            url = await sync_to_async(self.bot.spotify_client.resolve_url)(url)
 
         if sound_cloud_regex.match(url):
             txt = ""
