@@ -118,26 +118,32 @@ class YoutubeDownloader:
                             raise FileTooLargeError(size_mb, max_filesize_mb)
                         last_successful_path = current_file
 
-        ydl_opts = {'format': f'bestaudio[ext={audio_format}]/bestaudio/best', 'outtmpl': {
-            'default': str(output_path / '%(title)s.%(ext)s'),
-                }, 'keepvideo': False,
-                    'noplaylist': False,
-                    'progress_hooks': [progress_hook],
-                    'noprogress': True,
-                    'ignoreerrors': True,
-                    'restrictfilenames': True,
-                    'quiet': True,
-                    'verbose': False,
-                    'no_warnings': True,
-                    'simulate': False,
-                    'extract_flat': False
-                    }
+        ydl_opts = {
+            'format': f'bestaudio[ext={audio_format}]/bestaudio/best',
+            'outtmpl': {
+                'default': str(output_path / '%(title)s.%(ext)s'),
+                },
+            'keepvideo': False,
+            'noplaylist': False,
+            'progress_hooks': [progress_hook],
+            'noprogress': True,
+            'ignoreerrors': True,
+            'restrictfilenames': True,
+            'quiet': True,
+            'verbose': False,
+            'no_warnings': True,
+            'simulate': False,
+            'extract_flat': False
+            }
 
         if not skip_authentication:
             if len(cookie_data) != 0:
                 ydl_opts["cookies"] = cookie_data
             else:
-                ydl_opts["extractor-arg"] = f'youtube:po_token={self.poll_for_client()}.gvs+{self.get_token()}'
+                ydl_opts.setdefault("extractor_args", {})
+                ydl_opts["extractor_args"]["youtube"] = (
+                    f'po_token={self.poll_for_client()}.gvs+{self.get_token()}'
+                )
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
