@@ -14,7 +14,6 @@ from utils.music.converters import YOUTUBE_VIDEO_REG
 from utils.music.checks import check_voice
 
 from tools.youtube_downloader import YoutubeDownloader, FileTooLargeError
-from tools.spotify.spotify_url_resolver import Spotify_Worker
 
 from asgiref.sync import sync_to_async
 from urllib.parse import urlparse, parse_qs
@@ -208,7 +207,6 @@ class YoutubeTools(commands.Cog):
 
         if action_btn_custom_id == "ytdl-mobile-view-btn":
             await interaction.send(self.downloaded)
-        
 
 def setup(bot: BotCore):
     bot.add_cog(YoutubeTools(bot))
