@@ -83,6 +83,9 @@ class DefaultProgressbarSkin:
             case "applemusic":
                 s_name = "Apple Music"
                 src_emoji = "<:applemusic:1232560350449242123>"
+            case "http":
+                s_name = "HTTP"
+                src_emoji = "<:link:1372085354424832000>"
             case _:
                 s_name = "分からない"
                 src_emoji = "<:LogoModSystem:1155781711024635934>"
@@ -118,9 +121,9 @@ class DefaultProgressbarSkin:
 
         try:
             if not player.keep_connected:
-                vc_txt += f"\n> <:AyakaCozy_mella:1135418504590393415> **⠂ユーザーを接続する:** `{len(player.guild.me.voice.channel.members) - 1}`"
+                vc_txt += f"\n> <:star3:1155781751914889236> **⠂ユーザーを接続する:** `{len(player.guild.me.voice.channel.members) - 1}`"
             else:
-                vc_txt += f"\n> <:AyakaCozy_mella:1135418504590393415> **⠂ユーザーを接続する:** `24/7 モード`"
+                vc_txt += f"\n> <:star3:1155781751914889236> **⠂ユーザーを接続する:** `24/7 モード`"
         except AttributeError:
             pass
 

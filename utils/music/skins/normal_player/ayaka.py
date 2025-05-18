@@ -73,6 +73,7 @@ class DefaultProgressbarSkin:
                 src_emoji = "<:applemusic:1232560350449242123>"
             case "http":
                 s_name = "HTTP"
+                src_emoji = "<:link:1372085354424832000>"
             case _:
                 s_name = "Không biết"
                 src_emoji = "<:LogoModSystem:1155781711024635934>"
@@ -94,6 +95,8 @@ class DefaultProgressbarSkin:
                 txt += f"\n> <:emoji_58:1173431708071247983> **⠂Độ trễ:** `{player.ping}ms`"
             elif player.ping in range(301, 1000):
                 txt += f"\n> <:emoji_59:1173431772017590332> **⠂Độ trễ:** `{player.ping}ms`"
+            else:
+                txt += f"\n> <:noconnection:1372092488399061022> **Lỗi kết nối máy chủ**"
 
         if not player.current.autoplay:
                     txt += f"\n> ✋ **⠂Được yêu cầu bởi:** <@{player.current.requester}>"
@@ -106,7 +109,7 @@ class DefaultProgressbarSkin:
 
 
         try:
-            vc_txt += f"\n> <:AyakaCozy_mella:1135418504590393415> **⠂Người dùng đang kết nối:** `{len(player.guild.me.voice.channel.members) - 1}`"
+            vc_txt += f"\n> <:star3:1155781751914889236> **⠂Người dùng đang kết nối:** `{len(player.guild.me.voice.channel.members) - 1}`"
         except AttributeError:
             pass
 
