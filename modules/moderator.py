@@ -39,7 +39,7 @@ class Moderator(commands.Cog):
     desc_prefix = f"[{emoji} {name}] | "
 
     @commands.command(name="ban", description="Cấm người dùng khỏi server")
-    @commands.has_permissions(ban_members=True)
+    @commands.has_guild_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
@@ -76,7 +76,7 @@ class Moderator(commands.Cog):
         await ctx.send(embed=disnake.Embed(title=f"<:LogoModSystem:1155781711024635934> Đã cấm {member} khỏi server", color=disnake.Color.green()))
 
     @commands.command(name="unban", description="Bỏ cấm người dùng khỏi server")
-    @commands.has_permissions(ban_members=True)
+    @commands.has_guild_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
@@ -91,7 +91,7 @@ class Moderator(commands.Cog):
         await ctx.send(embed=disnake.Embed(title=f"<:LogoModSystem:1155781711024635934> Đã bỏ cấm {member} khỏi server", color=disnake.Color.green()))
 
     @commands.command(name="kick", description="Đá người dùng khỏi server")
-    @commands.has_permissions(kick_members=True)
+    @commands.has_guild_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
@@ -125,7 +125,7 @@ class Moderator(commands.Cog):
         await ctx.send(embed=disnake.Embed(title=f"<:LogoModSystem:1155781711024635934> Đã đá {member} khỏi server", color=disnake.Color.green()))
 
     @commands.command(name="mute", description="Cấm người dùng nói chuyện trong server trong một khoảng thời gian nhất định")
-    @commands.has_permissions(moderate_members=True)
+    @commands.has_guild_permissions(moderate_members=True)
     @commands.bot_has_permissions(moderate_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.guild)
@@ -174,7 +174,7 @@ class Moderator(commands.Cog):
             return
     
     @commands.command(name="unmute", description="Bỏ cấm chat cho người dùng")
-    @commands.has_permissions(moderate_members=True)
+    @commands.has_guild_permissions(moderate_members=True)
     async def unmute(self, ctx: CustomContext, member: disnake.Member = None):
         if member is None: return
         if member.current_timeout is None:
@@ -190,7 +190,7 @@ class Moderator(commands.Cog):
             return            
 
     @commands.command(name="purge", description="Xóa tin nhắn trong kênh")
-    @commands.has_permissions(manage_messages=True, read_message_history=True)
+    @commands.has_guild_permissions(manage_messages=True, read_message_history=True)
     @commands.cooldown(1, 10, commands.BucketType.guild)
     @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
     async def purge_legacy(self, ctx: Union[CustomContext, disnake.AppCommandInteraction], amount: int = None):
@@ -203,7 +203,7 @@ class Moderator(commands.Cog):
                                                     type=disnake.OptionType.integer, 
                                                     required=True
                                                     )])
-    @commands.has_permissions(manage_messages=True, read_message_history=True)
+    @commands.has_guild_permissions(manage_messages=True, read_message_history=True)
     @commands.bot_has_permissions(manage_messages=True, read_message_history=True)
     @commands.cooldown(1, 10, commands.BucketType.guild)
     async def purge(self, ctx: disnake.AppCommandInteraction, amount: int = None):
@@ -226,7 +226,7 @@ class Moderator(commands.Cog):
             await ctx.send(embed=disnake.Embed(title=f"<:trash:1155781755601682433> Đã xóa {len(deleted)} tin nhắn", color=disnake.Color.green()), delete_after=5)
 
     @commands.command(name="nuke", description="Xóa toàn bộ tin nhắn trong kênh và tạo lại kênh")
-    @commands.has_permissions(administrator=True)
+    @commands.has_guild_permissions(administrator=True)
     @commands.bot_has_permissions(manage_channels=True)
     @commands.cooldown(1, 86400, commands.BucketType.guild)
     async def nuke(self, ctx: CustomContext):
